@@ -27,6 +27,27 @@ model User {
   role         Role     @default(OWNER)
   suspended    Boolean  @default(false)
 
+  // relations
+  pets         Pet[]
+
+  // audit
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model Pet {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name      String
+  species   String?
+  breed     String?
+  dob       DateTime?
+  archived  Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
 }
