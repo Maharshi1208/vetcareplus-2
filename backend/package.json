@@ -10,7 +10,8 @@
     "dev": "tsx watch src/index.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "prisma db seed"
   },
   "keywords": [],
   "author": "",
@@ -35,5 +36,8 @@
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   },
-  "type": "module"
+  "type": "module",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
 }
