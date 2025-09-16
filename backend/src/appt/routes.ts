@@ -160,4 +160,40 @@ router.patch('/:id/cancel', authRequired, async (req: AuthedRequest, res) => {
   res.json({ ok: true, appointment: { id: updated.id, status: updated.status } });
 });
 
+
+// PATCH /appointments/:id/complete (ADMIN only, requires a SUCCESS payment)
+router.patch('/:id/complete', authRequired, async (req, res) => {
+  const user = (req as any).user;
+  if (!user || user.role !== 'ADMIN') {
+    return res.status(403).json({ ok: false, error: 'Admin only' });
+  }
+
+  const id = req.params.id;
+
+  const appt = await prisma.appointment.findUnique({
+    where: { id },
+    select: { id: true, status: true }
+  });
+  if (!appt) return res.status(404).json({ ok: false, error: 'Not found' });
+  if (appt.status !== 'BOOKED') {
+    return res.status(400).json({ ok: false, error: 'Only BOOKED appointments can be completed' });
+  }
+
+  const paid = await prisma.payment.findFirst({
+    where: { appointmentId: id, status: 'SUCCESS' },
+    select: { id: true }
+  });
+  if (!paid) {
+    return res.status(400).json({ ok: false, error: 'Requires a successful payment' });
+  }
+
+  const updated = await prisma.appointment.update({
+    where: { id },
+    data: { status: 'COMPLETED' }
+  });
+
+  return res.json({ ok: true, appointment: updated });
+});
+
+
 export default router;
