@@ -60,7 +60,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               to="/login"
               className="text-sm font-medium text-accent-700 hover:text-accent-900"
             >
-              Login
+
+              
             </Link>
             <div className="h-8 w-8 rounded-full bg-gradient-to-r from-accent-500 to-brand-500 text-white grid place-items-center text-xs font-bold">
               SR

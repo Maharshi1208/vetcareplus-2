@@ -3,6 +3,9 @@ import AppShell from "./layouts/AppShell";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
+import PetsPage from "./pages/Pets";
+import AddPetPage from "./pages/AddPet";
+import EditPetPage from "./pages/EditPet";
 
 // simple stub pages (we'll design later)
 const Page = ({ title }: { title: string }) => (
@@ -12,7 +15,6 @@ const Page = ({ title }: { title: string }) => (
   </div>
 );
 
-function Pets() { return <Page title="Pets" />; }
 function Vets() { return <Page title="Vets" />; }
 function Owners() { return <Page title="Owners" />; }
 function Appointments() { return <Page title="Appointments" />; }
@@ -31,7 +33,13 @@ export default function App() {
 
         {/* App routes (with AppShell) */}
         <Route path="/dashboard" element={<AppShell><Dashboard /></AppShell>} />
-        <Route path="/pets" element={<AppShell><Pets /></AppShell>} />
+
+        {/* Pets module */}
+        <Route path="/pets" element={<AppShell><PetsPage /></AppShell>} />
+        <Route path="/pets/add" element={<AppShell><AddPetPage /></AppShell>} />
+        <Route path="/pets/:id/edit" element={<AppShell><EditPetPage /></AppShell>} />
+
+        {/* Other modules */}
         <Route path="/vets" element={<AppShell><Vets /></AppShell>} />
         <Route path="/owners" element={<AppShell><Owners /></AppShell>} />
         <Route path="/appointments" element={<AppShell><Appointments /></AppShell>} />
