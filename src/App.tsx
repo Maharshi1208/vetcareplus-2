@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AppShell from "./layouts/AppShell";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
 
 // simple stub pages (we'll design later)
 const Page = ({ title }: { title: string }) => (
@@ -11,17 +12,6 @@ const Page = ({ title }: { title: string }) => (
   </div>
 );
 
-function Dashboard() { return (
-  <div className="grid gap-6 md:grid-cols-3">
-    <div className="md:col-span-2 rounded-2xl p-6 text-white shadow-soft bg-gradient-to-br from-sky-500 to-emerald-500">
-      <h2 className="text-2xl font-semibold">Website Analytics</h2>
-    </div>
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-soft">
-      <p className="text-sm text-gray-600">Average Daily Sales</p>
-      <div className="mt-2 text-2xl font-semibold">$28,450</div>
-    </div>
-  </div>
-); }
 function Pets() { return <Page title="Pets" />; }
 function Vets() { return <Page title="Vets" />; }
 function Owners() { return <Page title="Owners" />; }
