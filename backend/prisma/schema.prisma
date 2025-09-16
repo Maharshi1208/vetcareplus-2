@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  VET
+  ADMIN
+}
+
+enum ApptStatus {
+  BOOKED
+  CANCELLED
+  COMPLETED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         Role     @default(OWNER)
+  suspended    Boolean  @default(false)
+
+  // relations
+  pets         Pet[]
+
+  // audit
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Pet {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name      String
+  species   String?
+  breed     String?
+  dob       DateTime?
+  archived  Boolean  @default(false)
+
+  // back-relations
+  appointments  Appointment[]
+  vaccinations  Vaccination[]
+  medications   Medication[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+}
+
+model Vet {
+  id           String  @id @default(cuid())
+  name         String
+  email        String? @unique
+  phone        String?
+  specialty    String?
+  bio          String?
+  active       Boolean @default(true)
+
+  availabilities VetAvailability[]
+  appointments   Appointment[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VetAvailability {
+  id           String  @id @default(cuid())
+  vetId        String
+  vet          Vet     @relation(fields: [vetId], references: [id], onDelete: Cascade)
+
+  // 0 = Sunday ... 6 = Saturday (server local time)
+  weekday      Int
+
+  // minutes from midnight (0..1440)
+  startMinutes Int
+  endMinutes   Int
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([vetId, weekday])
+}
+
+model Appointment {
+  id        String      @id @default(cuid())
+  petId     String
+  pet       Pet         @relation(fields: [petId], references: [id], onDelete: Cascade)
+  vetId     String
+  vet       Vet         @relation(fields: [vetId], references: [id], onDelete: Cascade)
+
+  start     DateTime
+  end       DateTime
+  status    ApptStatus  @default(BOOKED)
+  reason    String?
+  notes     String?
+
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([vetId, start, end])
+  @@index([petId, start])
+}
+
+model Vaccination {
+  id        String   @id @default(cuid())
+  petId     String
+  pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  name      String
+  givenAt   DateTime            // immutable entry date/time
+  notes     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([petId, givenAt])
+}
+
+model Medication {
+  id           String   @id @default(cuid())
+  petId        String
+  pet          Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  name         String
+  dosage       String              // e.g., "50mg", "2ml"
+  startAt      DateTime
+  durationDays Int                 // how many days; keep simple for v1
+  notes        String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([petId, startAt])
+}

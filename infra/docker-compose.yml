@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: vetcare_db
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - vetcare_net
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: vetcare_pgadmin
+    depends_on:
+      - db
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    networks:
+      - vetcare_net
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: vetcare_mailhog
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025" # SMTP
+      - "${MAILHOG_UI_PORT:-8025}:8025"   # Web UI
+    networks:
+      - vetcare_net
+
+volumes:
+  pg_data:
+
+networks:
+  vetcare_net:
+    driver: bridge
