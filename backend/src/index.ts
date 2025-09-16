@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import reportRoutes from "./report/routes";
 import payRoutes from "./pay/routes";
 import healthRoutes from "./health/routes";
 import apptRoutes from "./appt/routes";
@@ -50,4 +51,5 @@ app.use('/vets', vetRoutes);
 app.use('/appointments', apptRoutes);
 app.use('/health', healthRoutes);
 app.use('/pay', payRoutes);
+app.use('/reports', reportRoutes);
 app.listen(PORT, () => console.log(`VetCare+ API listening on http://localhost:${PORT}`));
