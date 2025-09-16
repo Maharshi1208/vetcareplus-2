@@ -7,18 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-//////////////////////
-// Enums
-//////////////////////
 enum Role {
   OWNER
   VET
   ADMIN
 }
 
-//////////////////////
-// Models
-//////////////////////
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -50,4 +44,37 @@ model Pet {
   updatedAt DateTime @updatedAt
 
   @@index([ownerId])
+}
+
+model Vet {
+  id           String  @id @default(cuid())
+  name         String
+  email        String? @unique
+  phone        String?
+  specialty    String?
+  bio          String?
+  active       Boolean @default(true)
+
+  availabilities VetAvailability[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VetAvailability {
+  id           String  @id @default(cuid())
+  vetId        String
+  vet          Vet     @relation(fields: [vetId], references: [id], onDelete: Cascade)
+
+  // 0 = Sunday ... 6 = Saturday
+  weekday      Int
+
+  // minutes from midnight local time (0..1440)
+  startMinutes Int
+  endMinutes   Int
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([vetId, weekday])
 }
