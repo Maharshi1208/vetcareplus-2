@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import authRoutes from "./auth/routes";
 import express from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
@@ -36,4 +37,5 @@ app.get('/health/db', async (_req, res) => {
   }
 });
 
+app.use('/auth', authRoutes);
 app.listen(PORT, () => console.log(`VetCare+ API listening on http://localhost:${PORT}`));
