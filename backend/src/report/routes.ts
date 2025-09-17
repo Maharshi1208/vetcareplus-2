@@ -7,12 +7,15 @@ const router = Router();
 const isAdmin = (req: AuthedRequest) => req.user?.role === 'ADMIN';
 
 function parseDateOnly(s: string) {
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) throw new Error('Invalid date');
-  // Accept YYYY-MM-DD or full ISO; if YYYY-MM-DD, keep as local midnight
-  return d;
+  // Treat YYYY-MM-DD as a *local* date (avoid UTC shift to previous day)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split('-').map(Number);
+    return new Date(y, m - 1, d); // local midnight
+  }
+  const d2 = new Date(s);
+  if (Number.isNaN(d2.getTime())) throw new Error('Invalid date');
+  return d2;
 }
-
 function startOfDay(d: Date) {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
