@@ -1,0 +1,36 @@
+{
+  "info": {
+    "name": "VetCare+ API — Health & Auth (seed)",
+    "_postman_id": "11111111-2222-3333-4444-555555555555",
+    "description": "Seed collection for Yash: /ping, /health/db, /auth/register, /auth/login",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    { "name": "Ping", "request": { "method": "GET", "url": "{{baseUrl}}/ping" } },
+    { "name": "Health DB", "request": { "method": "GET", "url": "{{baseUrl}}/health/db" } },
+    {
+      "name": "Auth — Register",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"email\":\"{{email}}\",\"password\":\"Passw0rd!\"}" },
+        "url": "{{baseUrl}}/auth/register"
+      }
+    },
+    {
+      "name": "Auth — Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"email\":\"{{loginEmail}}\",\"password\":\"{{loginPassword}}\"}" },
+        "url": "{{baseUrl}}/auth/login"
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "email", "value": "user+{{timestamp}}@example.com" },
+    { "key": "loginEmail", "value": "user@example.com" },
+    { "key": "loginPassword", "value": "Passw0rd!" }
+  ]
+}
