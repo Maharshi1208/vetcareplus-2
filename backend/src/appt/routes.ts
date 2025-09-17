@@ -2,6 +2,11 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/db';
 import { authRequired, AuthedRequest } from '../middleware/auth';
+import {
+  sendApptBooked,
+  sendApptRescheduled,
+  sendApptCancelled,
+} from '../lib/mailer';
 
 // ---- helpers ----
 function isAdmin(req: AuthedRequest) { return req.user?.role === 'ADMIN'; }
@@ -39,8 +44,8 @@ async function apptConflict(vetId: string, start: Date, end: Date, excludeId?: s
       // overlap: not (newEnd <= existingStart OR newStart >= existingEnd)
       NOT: {
         OR: [
-          { end: { lte: start } },
-          { start: { gte: end } }
+          { end:   { lte: start } },
+          { start: { gte: end   } },
         ]
       },
       ...(excludeId ? { id: { not: excludeId } } : {})
@@ -73,10 +78,9 @@ const rescheduleSchema = z.object({
   end: z.string(),
 });
 
+// GET /appointments
 router.get('/', authRequired, async (req: AuthedRequest, res) => {
-  const where = isAdmin(req)
-    ? {}
-    : { pet: { ownerId: req.user!.sub } };
+  const where = isAdmin(req) ? {} : { pet: { ownerId: req.user!.sub } };
 
   const items = await prisma.appointment.findMany({
     where,
@@ -102,7 +106,7 @@ router.post('/', authRequired, async (req: AuthedRequest, res) => {
   try { s = ensureIso(start); e = ensureIso(end); } catch { return res.status(400).json({ ok: false, error: 'Invalid date' }); }
   if (!(e > s)) return res.status(400).json({ ok: false, error: 'End must be after start' });
 
-  const vet = await prisma.vet.findUnique({ where: { id: vetId }, select: { active: true } });
+  const vet = await prisma.vet.findUnique({ where: { id: vetId }, select: { active: true, name: true } });
   if (!vet || !vet.active) return res.status(400).json({ ok: false, error: 'Vet not found/active' });
 
   if (!(await withinAvailability(vetId, s, e))) {
@@ -112,9 +116,29 @@ router.post('/', authRequired, async (req: AuthedRequest, res) => {
     return res.status(409).json({ ok: false, error: 'Conflicting appointment' });
   }
 
+  // Create booking
   const appt = await prisma.appointment.create({
     data: { petId, vetId, start: s, end: e, status: 'BOOKED', reason },
   });
+
+  // Fire-and-forget email
+  try {
+    const pet = await prisma.pet.findUnique({
+      where: { id: petId },
+      select: { name: true, ownerId: true },
+    });
+    const owner = pet ? await prisma.user.findUnique({
+      where: { id: pet.ownerId },
+      select: { email: true },
+    }) : null;
+
+    if (owner?.email && pet && vet?.name) {
+      void sendApptBooked(owner.email, pet.name, vet.name!, s, e);
+    }
+  } catch (e) {
+    // swallow email errors (already logged in mailer)
+  }
+
   res.status(201).json({ ok: true, appointment: appt });
 });
 
@@ -125,7 +149,11 @@ router.patch('/:id/reschedule', authRequired, async (req: AuthedRequest, res) =>
 
   const appt = await prisma.appointment.findUnique({
     where: { id: req.params.id },
-    select: { id: true, petId: true, vetId: true, status: true, pet: { select: { ownerId: true } } }
+    select: {
+      id: true, petId: true, vetId: true, status: true,
+      pet: { select: { ownerId: true, name: true } },
+      vet: { select: { name: true } },
+    }
   });
   if (!appt) return res.status(404).json({ ok: false, error: 'Not found' });
   if (appt.status !== 'BOOKED') return res.status(400).json({ ok: false, error: 'Only BOOKED can be rescheduled' });
@@ -142,7 +170,22 @@ router.patch('/:id/reschedule', authRequired, async (req: AuthedRequest, res) =>
     return res.status(409).json({ ok: false, error: 'Conflicting appointment' });
   }
 
-  const updated = await prisma.appointment.update({ where: { id: appt.id }, data: { start: s, end: e } });
+  const updated = await prisma.appointment.update({
+    where: { id: appt.id },
+    data: { start: s, end: e }
+  });
+
+  // Fire-and-forget email
+  try {
+    const owner = await prisma.user.findUnique({
+      where: { id: appt.pet.ownerId },
+      select: { email: true },
+    });
+    if (owner?.email && appt.pet.name && appt.vet?.name) {
+      void sendApptRescheduled(owner.email, appt.pet.name, appt.vet.name, updated.start, updated.end);
+    }
+  } catch {}
+
   res.json({ ok: true, appointment: updated });
 });
 
@@ -150,16 +193,35 @@ router.patch('/:id/reschedule', authRequired, async (req: AuthedRequest, res) =>
 router.patch('/:id/cancel', authRequired, async (req: AuthedRequest, res) => {
   const appt = await prisma.appointment.findUnique({
     where: { id: req.params.id },
-    select: { id: true, status: true, pet: { select: { ownerId: true } } }
+    select: {
+      id: true, status: true,
+      pet: { select: { ownerId: true, name: true } },
+      vet: { select: { name: true } },
+      start: true,
+    }
   });
   if (!appt) return res.status(404).json({ ok: false, error: 'Not found' });
   if (appt.status !== 'BOOKED') return res.status(400).json({ ok: false, error: 'Only BOOKED can be cancelled' });
   if (!isAdmin(req) && appt.pet.ownerId !== req.user!.sub) return res.status(403).json({ ok: false, error: 'Forbidden' });
 
-  const updated = await prisma.appointment.update({ where: { id: appt.id }, data: { status: 'CANCELLED' } });
+  const updated = await prisma.appointment.update({
+    where: { id: appt.id },
+    data: { status: 'CANCELLED' }
+  });
+
+  // Fire-and-forget email
+  try {
+    const owner = await prisma.user.findUnique({
+      where: { id: appt.pet.ownerId },
+      select: { email: true },
+    });
+    if (owner?.email && appt.pet.name && appt.vet?.name) {
+      void sendApptCancelled(owner.email, appt.pet.name, appt.vet.name, appt.start);
+    }
+  } catch {}
+
   res.json({ ok: true, appointment: { id: updated.id, status: updated.status } });
 });
-
 
 // PATCH /appointments/:id/complete (ADMIN only, requires a SUCCESS payment)
 router.patch('/:id/complete', authRequired, async (req, res) => {
@@ -194,6 +256,5 @@ router.patch('/:id/complete', authRequired, async (req, res) => {
 
   return res.json({ ok: true, appointment: updated });
 });
-
 
 export default router;

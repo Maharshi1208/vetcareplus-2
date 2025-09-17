@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/db';
 import { authRequired, AuthedRequest } from '../middleware/auth';
+import { sendPaymentReceipt } from '../lib/mailer';
 
 const router = Router();
 const isAdmin = (req: AuthedRequest) => req.user?.role === 'ADMIN';
@@ -25,7 +26,7 @@ const checkoutSchema = z.object({
   amountCents: z.number().int().positive(),
   currency: z.string().default('CAD'),
   method: z.string().optional(),
-  simulate: z.enum(['SUCCESS','FAILED']),
+  simulate: z.enum(['SUCCESS', 'FAILED']),
 });
 
 router.post('/checkout', authRequired, async (req: AuthedRequest, res) => {
@@ -33,17 +34,33 @@ router.post('/checkout', authRequired, async (req: AuthedRequest, res) => {
   if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
 
   const { appointmentId, amountCents, currency, method, simulate } = parsed.data;
-  if (!(await canUseAppointment(req, appointmentId))) return res.status(403).json({ ok: false, error: 'Forbidden: not your appointment' });
+  if (!(await canUseAppointment(req, appointmentId))) {
+    return res.status(403).json({ ok: false, error: 'Forbidden: not your appointment' });
+  }
 
   const appt = await prisma.appointment.findUnique({
     where: { id: appointmentId },
-    select: { id: true, status: true, pet: { select: { name: true, ownerId: true } }, vet: { select: { name: true } }, start: true, end: true }
+    select: {
+      id: true,
+      status: true,
+      pet: { select: { name: true, ownerId: true } },
+      vet: { select: { name: true } },
+      start: true,
+      end: true,
+    }
   });
   if (!appt) return res.status(404).json({ ok: false, error: 'Appointment not found' });
-  if (appt.status !== 'BOOKED') return res.status(400).json({ ok: false, error: 'Only BOOKED appts can be paid' });
+  if (appt.status !== 'BOOKED') {
+    return res.status(400).json({ ok: false, error: 'Only BOOKED appts can be paid' });
+  }
 
-  const existingSuccess = await prisma.payment.findFirst({ where: { appointmentId, status: 'SUCCESS' }, select: { id: true } });
-  if (existingSuccess) return res.status(409).json({ ok: false, error: 'Payment already captured for this appointment' });
+  const existingSuccess = await prisma.payment.findFirst({
+    where: { appointmentId, status: 'SUCCESS' },
+    select: { id: true }
+  });
+  if (existingSuccess) {
+    return res.status(409).json({ ok: false, error: 'Payment already captured for this appointment' });
+  }
 
   const payment = await prisma.payment.create({
     data: {
@@ -52,7 +69,7 @@ router.post('/checkout', authRequired, async (req: AuthedRequest, res) => {
       currency,
       status: simulate === 'SUCCESS' ? 'SUCCESS' : 'FAILED',
       method,
-      providerRef: `MOCK-${Math.random().toString(36).slice(2,8)}`,
+      providerRef: `MOCK-${Math.random().toString(36).slice(2, 8)}`,
       receiptNo: simulate === 'SUCCESS' ? makeReceiptNo() : null,
     },
   });
@@ -61,7 +78,28 @@ router.post('/checkout', authRequired, async (req: AuthedRequest, res) => {
     return res.status(402).json({ ok: false, error: 'Payment failed', payment });
   }
 
-  res.status(201).json({
+  // Fire-and-forget receipt email (MailHog)
+  try {
+    const owner = await prisma.user.findUnique({
+      where: { id: appt.pet.ownerId },
+      select: { email: true },
+    });
+    if (owner?.email && payment.receiptNo) {
+      void sendPaymentReceipt(
+        owner.email,
+        appt.pet.name,
+        appt.vet.name,
+        appt.start,
+        payment.amountCents,
+        payment.currency,
+        payment.receiptNo
+      );
+    }
+  } catch {
+    // swallow email errors; they are logged in mailer
+  }
+
+  return res.status(201).json({
     ok: true,
     payment,
     receipt: {
@@ -82,8 +120,13 @@ router.post('/checkout', authRequired, async (req: AuthedRequest, res) => {
 
 router.get('/appointment/:appointmentId', authRequired, async (req: AuthedRequest, res) => {
   const { appointmentId } = req.params;
-  if (!(await canUseAppointment(req, appointmentId))) return res.status(403).json({ ok: false, error: 'Forbidden' });
-  const rows = await prisma.payment.findMany({ where: { appointmentId }, orderBy: { createdAt: 'desc' } });
+  if (!(await canUseAppointment(req, appointmentId))) {
+    return res.status(403).json({ ok: false, error: 'Forbidden' });
+  }
+  const rows = await prisma.payment.findMany({
+    where: { appointmentId },
+    orderBy: { createdAt: 'desc' }
+  });
   res.json({ ok: true, payments: rows });
 });
 
@@ -93,8 +136,12 @@ router.get('/receipt/:paymentId', authRequired, async (req: AuthedRequest, res) 
     include: { appointment: { include: { pet: true, vet: true } } }
   });
   if (!pay) return res.status(404).json({ ok: false, error: 'Not found' });
-  if (!isAdmin(req) && pay.appointment.pet.ownerId !== req.user!.sub) return res.status(403).json({ ok: false, error: 'Forbidden' });
-  if (pay.status !== 'SUCCESS') return res.status(400).json({ ok: false, error: 'No receipt for non-successful payment' });
+  if (!isAdmin(req) && pay.appointment.pet.ownerId !== req.user!.sub) {
+    return res.status(403).json({ ok: false, error: 'Forbidden' });
+  }
+  if (pay.status !== 'SUCCESS') {
+    return res.status(400).json({ ok: false, error: 'No receipt for non-successful payment' });
+  }
 
   res.json({
     ok: true,
