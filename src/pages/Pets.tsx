@@ -1,6 +1,8 @@
-import { Link } from "react-router-dom";
-import React, { useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import React, { useMemo, useState, useEffect } from "react";
 import { usePets } from "../context/PetsContext";
+
+type FlashState = { type: "success" | "error" | "info"; message: string };
 
 function ageLabel(y?: number, m?: number) {
   const parts: string[] = [];
@@ -25,6 +27,20 @@ function yesNoBadge(v?: boolean) {
 export default function PetsPage() {
   const { pets, removePet } = usePets();
   const [q, setQ] = useState("");
+
+  // --- Flash banner (one-time) ---
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [flash, setFlash] = useState<FlashState | null>(null);
+
+  useEffect(() => {
+    const s = (location.state as any)?.flash as FlashState | undefined;
+    if (s) {
+      setFlash(s);
+      // clear history state so it doesn't reappear on refresh/back
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -69,6 +85,22 @@ export default function PetsPage() {
           </Link>
         </div>
       </div>
+
+      {/* Flash banner */}
+      {flash && (
+        <div className="mt-4 flex items-start justify-between rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+            <span className="font-medium">{flash.message}</span>
+          </div>
+          <button
+            onClick={() => setFlash(null)}
+            className="rounded-md px-2 py-1 text-green-700 hover:bg-green-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="mt-5">
