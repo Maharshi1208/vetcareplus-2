@@ -11,6 +11,10 @@ import VetsPage from "./pages/Vets";
 import VetDetailsPage from "./pages/VetDetails";
 import AddVetPage from "./pages/AddVet";
 import EditVetPage from "./pages/EditVet";
+import OwnersPage from "./pages/Owners";
+import AddOwnerPage from "./pages/AddOwner";
+import OwnerDetailsPage from "./pages/OwnerDetails";
+import EditOwnerPage from "./pages/EditOwner";
 
 
 // simple stub pages (we'll design later)
@@ -52,8 +56,14 @@ export default function App() {
 	<Route path="/vets/:id" element={<AppShell><VetDetailsPage /></AppShell>} />
 	<Route path="/vets/:id/edit" element={<AppShell><EditVetPage /></AppShell>} />
 
-        {/* Other modules */}
-        <Route path="/owners" element={<AppShell><Owners /></AppShell>} />
+	{/* Owners Module */}
+	<Route path="/owners" element={<AppShell><OwnersPage /></AppShell>} />
+	<Route path="/owners/add" element={<AppShell><AddOwnerPage /></AppShell>} />
+	<Route path="/owners/:id" element={<AppShell><OwnerDetailsPage /></AppShell>} />
+	<Route path="/owners/:id/edit" element={<AppShell><EditOwnerPage /></AppShell>} />
+
+
+	{/* Other modules */}
         <Route path="/appointments" element={<AppShell><Appointments /></AppShell>} />
         <Route path="/invoices" element={<AppShell><Invoices /></AppShell>} />
         <Route path="/health" element={<AppShell><HealthRecords /></AppShell>} />
