@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import PetsPage from "./pages/Pets";
 import AddPetPage from "./pages/AddPet";
 import EditPetPage from "./pages/EditPet";
+import PetDetailsPage from "./pages/PetDetails";
 
 // simple stub pages (we'll design later)
 const Page = ({ title }: { title: string }) => (
@@ -38,7 +39,8 @@ export default function App() {
         <Route path="/pets" element={<AppShell><PetsPage /></AppShell>} />
         <Route path="/pets/add" element={<AppShell><AddPetPage /></AppShell>} />
         <Route path="/pets/:id/edit" element={<AppShell><EditPetPage /></AppShell>} />
-
+        <Route path="/pets/:id" element={<AppShell><PetDetailsPage /></AppShell>} />
+        
         {/* Other modules */}
         <Route path="/vets" element={<AppShell><Vets /></AppShell>} />
         <Route path="/owners" element={<AppShell><Owners /></AppShell>} />
