@@ -9,6 +9,9 @@ import EditPetPage from "./pages/EditPet";
 import PetDetailsPage from "./pages/PetDetails";
 import VetsPage from "./pages/Vets";
 import VetDetailsPage from "./pages/VetDetails";
+import AddVetPage from "./pages/AddVet";
+import EditVetPage from "./pages/EditVet";
+
 
 // simple stub pages (we'll design later)
 const Page = ({ title }: { title: string }) => (
@@ -45,9 +48,9 @@ export default function App() {
         
 	{/* Vets module */}
 	<Route path="/vets" element={<AppShell><VetsPage /></AppShell>} />
-	<Route path="/vets" element={<AppShell><VetsPage /></AppShell>} />
+	<Route path="/vets/add" element={<AppShell><AddVetPage /></AppShell>} />
 	<Route path="/vets/:id" element={<AppShell><VetDetailsPage /></AppShell>} />
-
+	<Route path="/vets/:id/edit" element={<AppShell><EditVetPage /></AppShell>} />
 
         {/* Other modules */}
         <Route path="/owners" element={<AppShell><Owners /></AppShell>} />
