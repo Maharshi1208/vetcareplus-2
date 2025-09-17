@@ -109,7 +109,14 @@ export default function PetsPage() {
                           {p.breed ? <span className="text-gray-500">• {p.breed}</span> : null}
                         </div>
                       </div>
+                      {/* Actions: View / Edit / Delete */}
                       <div className="flex items-center gap-2">
+                        <Link
+                          to={`/pets/${p.id}`}
+                          className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
+                        >
+                          View
+                        </Link>
                         <Link
                           to={`/pets/${p.id}/edit`}
                           className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
@@ -124,6 +131,7 @@ export default function PetsPage() {
                         </button>
                       </div>
                     </div>
+
                     <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                       <div className="rounded-lg bg-gray-50 px-3 py-2">
                         <div className="text-gray-500">Age</div>
@@ -225,20 +233,28 @@ export default function PetsPage() {
                               "—"
                             )}
                           </td>
-                          {/* Single Actions column */}
-                          <td className="px-4 py-2 text-right space-x-2">
-                            <Link
-                              to={`/pets/${p.id}/edit`}
-                              className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
-                            >
-                              Edit
-                            </Link>
-                            <button
-                              onClick={() => removePet(p.id)}
-                              className="rounded-lg px-3 py-1.5 text-red-600 hover:bg-red-50"
-                            >
-                              Delete
-                            </button>
+                          {/* Actions: View / Edit / Delete */}
+                          <td className="px-4 py-3">
+                            <div className="flex justify-end gap-2">
+                              <Link
+                                to={`/pets/${p.id}`}
+                                className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
+                              >
+                                View
+                              </Link>
+                              <Link
+                                to={`/pets/${p.id}/edit`}
+                                className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+                              >
+                                Edit
+                              </Link>
+                              <button
+                                onClick={() => removePet(p.id)}
+                                className="rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
