@@ -40,14 +40,38 @@ const MOCK_PET = {
   notes: "Friendly, good with kids. Mild allergy to chicken.",
 };
 
+// UI-only mock timeline
+type TLType = "appointment" | "vaccine" | "med";
+type TLEntry = { id: string; date: string; type: TLType; title: string; note?: string };
+
+const MOCK_TIMELINE: TLEntry[] = [
+  { id: "tl3", date: "2025-09-10", type: "appointment", title: "Checkup with Dr. Smith", note: "General exam" },
+  { id: "tl2", date: "2025-08-01", type: "vaccine", title: "Rabies Booster", note: "Next due: 2026-08-01" },
+  { id: "tl1", date: "2025-07-15", type: "med", title: "Flea prevention", note: "Bravecto chewable" },
+];
+
+function typeBadge(t: TLType) {
+  const map = {
+    appointment: { label: "Appointment", cls: "border-sky-200 bg-sky-50 text-sky-700" },
+    vaccine: { label: "Vaccine", cls: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+    med: { label: "Medication", cls: "border-amber-200 bg-amber-50 text-amber-700" },
+  } as const;
+  const info = map[t];
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${info.cls}`}>
+      {info.label}
+    </span>
+  );
+}
+
 export default function PetDetailsPage() {
-  const { id } = useParams(); // reserved for future wiring
+  const { id } = useParams();
   const p = { ...MOCK_PET, id: id ?? MOCK_PET.id };
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{p.name}</h1>
           <p className="text-sm text-gray-500">Pet profile (read-only UI).</p>
@@ -65,7 +89,7 @@ export default function PetDetailsPage() {
         </div>
       </div>
 
-      {/* Card */}
+      {/* Details card */}
       <div className="rounded-2xl border bg-white shadow-sm">
         <div className="border-b p-4">
           <h2 className="text-base font-medium">Pet Details</h2>
@@ -139,6 +163,38 @@ export default function PetDetailsPage() {
               {p.notes || "—"}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Timeline card (UI-only) */}
+      <div className="rounded-2xl border bg-white shadow-sm">
+        <div className="border-b p-4">
+          <h2 className="text-base font-medium">Timeline</h2>
+          <p className="text-xs text-gray-500">Appointments, vaccinations, and medications.</p>
+        </div>
+
+        <div className="p-4 sm:p-6">
+          {MOCK_TIMELINE.length === 0 ? (
+            <div className="text-sm text-gray-600">No history yet.</div>
+          ) : (
+            <ul className="space-y-4">
+              {MOCK_TIMELINE.map((e) => (
+                <li key={e.id} className="flex items-start gap-3">
+                  <div className="mt-1 h-2 w-2 rounded-full bg-gray-300" />
+                  <div className="flex-1 rounded-xl border bg-gray-50 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-sm font-medium">{e.title}</div>
+                      <div className="text-xs text-gray-500">{e.date}</div>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      {typeBadge(e.type)}
+                      {e.note ? <span className="text-xs text-gray-600">• {e.note}</span> : null}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>
