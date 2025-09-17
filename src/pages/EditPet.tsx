@@ -95,7 +95,7 @@ export default function EditPetPage() {
     // eslint-disable-next-line no-console
     console.log("EditPetPage submit (UI-only):", { id, ...form });
 
-    navigate("/pets");
+    navigate("/pets", { state: { flash: { type: "success", message: "Pet updated" } } });
   }
 
   function onReset() {
