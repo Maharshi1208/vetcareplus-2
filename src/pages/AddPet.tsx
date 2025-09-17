@@ -137,7 +137,7 @@ export default function AddPetPage() {
       notes: form.notes.trim() || undefined,
     });
 
-    navigate("/pets");
+    navigate("/pets", { state: { flash: { type: "success", message: "Pet saved" } } });
   }
 
   function onReset() {
