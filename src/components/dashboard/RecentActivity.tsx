@@ -24,9 +24,9 @@ function typeLabel(t: Activity["type"]) {
 }
 
 export default function RecentActivity({
-  items,
+  items = [],
 }: {
-  items: Activity[];
+  items?: Activity[];
 }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -78,6 +78,14 @@ export default function RecentActivity({
                 <td className="px-3 py-3 text-gray-500">{row.when}</td>
               </tr>
             ))}
+
+            {items.length === 0 && (
+              <tr>
+                <td colSpan={3} className="px-3 py-4 text-sm text-gray-500">
+                  No recent activity.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

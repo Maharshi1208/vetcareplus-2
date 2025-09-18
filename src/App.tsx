@@ -24,7 +24,9 @@ import AddInvoicePage from "./pages/AddInvoice";
 import EditInvoicePage from "./pages/EditInvoice";
 import ApptCalendarPage from "./pages/ApptCalendar";
 import HealthPage from "./pages/Health";
-
+import PayCheckoutPage from "./pages/PayCheckout";
+import PayResultPage from "./pages/PayResult";
+import SettingsPage from "./pages/Settings";
 
 
 // simple stub pages (we'll design later)
@@ -93,8 +95,12 @@ export default function App() {
 	<Route path="/health" element={<AppShell><HealthPage /></AppShell>} />
 
 
-	{/* Other modules */}
-        <Route path="/settings" element={<AppShell><Settings /></AppShell>} />
+	{/* Payment Module (MOCK) */}
+	<Route path="/pay/checkout/:apptId" element={<AppShell><PayCheckoutPage /></AppShell>} />
+	<Route path="/pay/result" element={<AppShell><PayResultPage /></AppShell>} />
+
+	{/* Settings Page */}
+        <Route path="/settings" element={<AppShell><SettingsPage /></AppShell>} />
 
         {/* Redirects & 404 */}        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<AppShell><NotFound /></AppShell>} />

@@ -1,70 +1,30 @@
+// src/pages/AppointmentDetails.tsx
 import React from "react";
 import { Link, useParams } from "react-router-dom";
 
-type ApptStatus = "Booked" | "Rescheduled" | "Cancelled" | "Completed";
+type ApptStatus = "BOOKED" | "COMPLETED" | "CANCELLED";
 
-type Appointment = {
-  id: string;
-  date: string;      // YYYY-MM-DD
-  start: string;     // HH:mm
-  end: string;       // HH:mm
-  petName: string;
-  ownerName: string;
-  vetName: string;
-  reason?: string;
-  status: ApptStatus;
-  notes?: string;
-};
-
-// Keep IDs consistent with the list page for demo
-const MOCK: Record<string, Appointment> = {
-  a1: {
-    id: "a1",
-    date: "2025-09-17",
-    start: "09:00",
-    end: "09:30",
-    petName: "Buddy",
-    ownerName: "Alice Johnson",
-    vetName: "Dr. Anna Smith",
-    reason: "Checkup",
-    status: "Booked",
-    notes: "Bring previous vaccination card.",
-  },
-  a2: {
-    id: "a2",
-    date: "2025-09-17",
-    start: "10:00",
-    end: "10:45",
-    petName: "Misty",
-    ownerName: "Alice Johnson",
-    vetName: "Dr. Brian Lee",
-    reason: "Skin rash",
-    status: "Completed",
-    notes: "Ointment prescribed.",
-  },
-  a3: {
-    id: "a3",
-    date: "2025-09-18",
-    start: "11:30",
-    end: "12:00",
-    petName: "Kiwi",
-    ownerName: "Bob Patel",
-    vetName: "Dr. Carla Gomez",
-    reason: "Beak trim",
-    status: "Cancelled",
-    notes: "Canceled by owner",
-  },
+const MOCK_APPT = {
+  id: "apt-001",
+  pet: "Buddy",
+  owner: "Alice",
+  vet: "Dr. Smith",
+  when: "2025-09-20 10:00",
+  durationMins: 30,
+  reason: "General checkup",
+  status: "BOOKED" as ApptStatus,
+  notes: "Bring previous vaccination card.",
+  fee: 75.0,
 };
 
 function statusBadge(s: ApptStatus) {
   const map: Record<ApptStatus, string> = {
-    Booked: "border-sky-200 bg-sky-50 text-sky-700",
-    Rescheduled: "border-amber-200 bg-amber-50 text-amber-700",
-    Cancelled: "border-rose-200 bg-rose-50 text-rose-700",
-    Completed: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    BOOKED: "border-sky-200 bg-sky-50 text-sky-700",
+    COMPLETED: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    CANCELLED: "border-rose-200 bg-rose-50 text-rose-700",
   };
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${map[s]}`}>
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs ${map[s]}`}>
       {s}
     </span>
   );
@@ -72,80 +32,79 @@ function statusBadge(s: ApptStatus) {
 
 export default function AppointmentDetailsPage() {
   const { id } = useParams();
-  const a: Appointment =
-    (id && MOCK[id]) ||
-    ({
-      id: id ?? "unknown",
-      date: "—",
-      start: "—",
-      end: "—",
-      petName: "—",
-      ownerName: "—",
-      vetName: "—",
-      status: "Booked",
-    } as Appointment);
+  const a = { ...MOCK_APPT, id: id ?? MOCK_APPT.id };
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">Appointment Details</h1>
-          <p className="text-sm text-gray-500">Read-only UI (no API yet).</p>
+          <p className="text-sm text-gray-500">
+            ID: <span className="font-mono">{a.id}</span>
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            to={`/appointments/${a.id}/edit`}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm hover:bg-blue-700"
-          >
-            Edit
-          </Link>
-          <Link to="/appointments" className="rounded-xl border px-4 py-2 hover:bg-gray-50">
-            Back to Appointments
+          {/* NEW: Pay button (mock checkout) */}
+          {a.status === "BOOKED" && (
+            <Link
+              to={`/pay/checkout/${a.id}`}
+              className="rounded-xl bg-blue-600 px-4 py-2 text-sm text-white shadow-sm hover:bg-blue-700"
+              title="Proceed to mock payment"
+            >
+              Pay ${a.fee.toFixed(2)}
+            </Link>
+          )}
+          <Link to="/appointments" className="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+            ← Back to list
           </Link>
         </div>
       </div>
 
-      {/* Core details */}
+      {/* Card */}
       <div className="rounded-2xl border bg-white shadow-sm">
         <div className="border-b p-4">
-          <h2 className="text-base font-medium">Summary</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-medium">Overview</h2>
+            {statusBadge(a.status)}
+          </div>
         </div>
-        <div className="p-4 sm:p-6 grid gap-4 sm:grid-cols-2">
-          <div>
-            <div className="text-xs text-gray-500">Date</div>
-            <div className="mt-1 rounded-lg border bg-gray-50 px-3 py-2">{a.date}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Time</div>
-            <div className="mt-1 rounded-lg border bg-gray-50 px-3 py-2">
-              {a.start}–{a.end}
+
+        <div className="p-4 sm:p-6">
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Pet</dt>
+              <dd className="text-sm">{a.pet}</dd>
             </div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Pet</div>
-            <div className="mt-1 rounded-lg border bg-gray-50 px-3 py-2">{a.petName}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Owner</div>
-            <div className="mt-1 rounded-lg border bg-gray-50 px-3 py-2">{a.ownerName}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Veterinarian</div>
-            <div className="mt-1 rounded-lg border bg-gray-50 px-3 py-2">{a.vetName}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Status</div>
-            <div className="mt-1">{statusBadge(a.status)}</div>
-          </div>
-          <div className="sm:col-span-2">
-            <div className="text-xs text-gray-500">Reason</div>
-            <div className="mt-1 rounded-lg border bg-gray-50 px-3 py-2">{a.reason ?? "—"}</div>
-          </div>
-          <div className="sm:col-span-2">
-            <div className="text-xs text-gray-500">Notes</div>
-            <div className="mt-1 rounded-lg border bg-gray-50 px-3 py-2">{a.notes ?? "—"}</div>
-          </div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Owner</dt>
+              <dd className="text-sm">{a.owner}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Veterinarian</dt>
+              <dd className="text-sm">{a.vet}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">When</dt>
+              <dd className="text-sm">{a.when}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Duration</dt>
+              <dd className="text-sm">{a.durationMins} mins</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Reason</dt>
+              <dd className="text-sm">{a.reason}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Fee</dt>
+              <dd className="text-sm">${a.fee.toFixed(2)}</dd>
+            </div>
+            <div className="sm:col-span-2 lg:col-span-3">
+              <dt className="text-xs uppercase text-gray-500">Notes</dt>
+              <dd className="text-sm">{a.notes || "—"}</dd>
+            </div>
+          </dl>
         </div>
       </div>
     </div>

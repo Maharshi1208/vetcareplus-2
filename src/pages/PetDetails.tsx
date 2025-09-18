@@ -1,38 +1,18 @@
-import React from "react";
+// src/pages/PetDetails.tsx
+import React, { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-function ageLabel(y?: number | string, m?: number | string) {
-  const parts: string[] = [];
-  if (y !== undefined && y !== "") parts.push(`${y}y`);
-  if (m !== undefined && m !== "") parts.push(`${m}m`);
-  return parts.length ? parts.join(" ") : "—";
-}
-
-function yesNoBadge(v?: boolean) {
-  return (
-    <span
-      className={
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium " +
-        (v ? "bg-green-50 text-green-700 border border-green-200"
-           : "bg-gray-50 text-gray-700 border border-gray-200")
-      }
-    >
-      {v ? "Yes" : "No"}
-    </span>
-  );
-}
-
-// UI-only mock pet (replace with real fetch/context later)
+// ---- Existing mock pet (kept) ----
 const MOCK_PET = {
-  id: "pet_001",
-  name: "Bruno",
+  id: "p-1",
+  name: "Buddy",
   species: "Dog",
   breed: "Labrador Retriever",
-  color: "Brown",
-  ageYears: 3,
+  gender: "MALE",
+  color: "Golden",
+  ageYears: 4,
   ageMonths: 2,
-  weightKg: 18.5,
-  gender: "MALE" as "MALE" | "FEMALE" | "UNKNOWN",
+  weightKg: 28.5,
   ownerName: "Alice",
   microchipId: "9851-0034-221A",
   vaccinated: true,
@@ -40,11 +20,12 @@ const MOCK_PET = {
   notes: "Friendly, good with kids. Mild allergy to chicken.",
 };
 
-// UI-only mock timeline
+// ---- Timeline types ----
 type TLType = "appointment" | "vaccine" | "med";
 type TLEntry = { id: string; date: string; type: TLType; title: string; note?: string };
 
-const MOCK_TIMELINE: TLEntry[] = [
+// Initial (UI-only) timeline
+const INITIAL_TIMELINE: TLEntry[] = [
   { id: "tl3", date: "2025-09-10", type: "appointment", title: "Checkup with Dr. Smith", note: "General exam" },
   { id: "tl2", date: "2025-08-01", type: "vaccine", title: "Rabies Booster", note: "Next due: 2026-08-01" },
   { id: "tl1", date: "2025-07-15", type: "med", title: "Flea prevention", note: "Bravecto chewable" },
@@ -64,9 +45,107 @@ function typeBadge(t: TLType) {
   );
 }
 
+function ageLabel(y?: number, m?: number) {
+  const parts: string[] = [];
+  if (typeof y === "number") parts.push(`${y}y`);
+  if (typeof m === "number") parts.push(`${m}m`);
+  return parts.length ? parts.join(" ") : "—";
+}
+
+// Small helper for ids (UI-only)
+function uid(prefix: string = "id") {
+  return `${prefix}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export default function PetDetailsPage() {
   const { id } = useParams();
   const p = { ...MOCK_PET, id: id ?? MOCK_PET.id };
+
+  // ---- Timeline state (with initial items) ----
+  const [timeline, setTimeline] = useState<TLEntry[]>(INITIAL_TIMELINE);
+
+  // ---- Local UI: which add-form is open ----
+  const [showVacForm, setShowVacForm] = useState(false);
+  const [showMedForm, setShowMedForm] = useState(false);
+
+  // ---- Vaccine form state ----
+  const [vac, setVac] = useState({
+    date: new Date().toISOString().slice(0, 10),
+    name: "",
+    note: "",
+    nextDue: "",
+  });
+
+  // ---- Medication form state ----
+  const [med, setMed] = useState({
+    date: new Date().toISOString().slice(0, 10),
+    name: "",
+    dosage: "",
+    duration: "",
+    note: "",
+  });
+
+  // Sorted timeline (latest first)
+  const sorted = useMemo(() => {
+    return [...timeline].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  }, [timeline]);
+
+  function addVaccine(e: React.FormEvent) {
+    e.preventDefault();
+    if (!vac.name.trim()) return;
+
+    const note = [vac.note.trim(), vac.nextDue ? `Next due: ${vac.nextDue}` : ""]
+      .filter(Boolean)
+      .join(" • ");
+
+    const entry: TLEntry = {
+      id: uid("vac"),
+      date: vac.date,
+      type: "vaccine",
+      title: vac.name.trim(),
+      note: note || undefined,
+    };
+    setTimeline((t) => [entry, ...t]);
+    setShowVacForm(false);
+    setVac({
+      date: new Date().toISOString().slice(0, 10),
+      name: "",
+      note: "",
+      nextDue: "",
+    });
+  }
+
+  function addMedication(e: React.FormEvent) {
+    e.preventDefault();
+    if (!med.name.trim()) return;
+
+    const noteParts = [
+      med.dosage ? `Dosage: ${med.dosage}` : "",
+      med.duration ? `Duration: ${med.duration}` : "",
+      med.note.trim(),
+    ].filter(Boolean);
+    const entry: TLEntry = {
+      id: uid("med"),
+      date: med.date,
+      type: "med",
+      title: med.name.trim(),
+      note: noteParts.join(" • ") || undefined,
+    };
+    setTimeline((t) => [entry, ...t]);
+    setShowMedForm(false);
+    setMed({
+      date: new Date().toISOString().slice(0, 10),
+      name: "",
+      dosage: "",
+      duration: "",
+      note: "",
+    });
+  }
+
+  // ---- NEW: tiny delete (UI-only) ----
+  function removeEntry(entryId: string) {
+    setTimeline((t) => t.filter((x) => x.id !== entryId));
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -74,117 +153,226 @@ export default function PetDetailsPage() {
       <div className="mb-2 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{p.name}</h1>
-          <p className="text-sm text-gray-500">Pet profile (read-only UI).</p>
+          <p className="text-sm text-gray-500">Pet profile (read-only data; timeline is UI-only).</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            to={`/pets/${p.id}/edit`}
-            className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
-          >
-            Edit
-          </Link>
-          <Link to="/pets" className="text-sm underline">
-            ← Back to Pets
-          </Link>
-        </div>
+        <Link to="/pets" className="text-sm underline">
+          ← Back to Pets
+        </Link>
       </div>
 
-      {/* Details card */}
+      {/* Details card (kept) */}
       <div className="rounded-2xl border bg-white shadow-sm">
         <div className="border-b p-4">
           <h2 className="text-base font-medium">Pet Details</h2>
         </div>
-
-        <div className="p-4 sm:p-6 space-y-6">
-          {/* Species / Breed / Color */}
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-lg bg-gray-50 p-3">
-              <div className="text-xs text-gray-500">Species</div>
-              <div className="font-medium">{p.species}</div>
+        <div className="p-4 sm:p-6">
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Species</dt>
+              <dd className="text-sm">{p.species}</dd>
             </div>
-            <div className="rounded-lg bg-gray-50 p-3">
-              <div className="text-xs text-gray-500">Breed</div>
-              <div className="font-medium">{p.breed ?? "—"}</div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Breed</dt>
+              <dd className="text-sm">{p.breed ?? "—"}</dd>
             </div>
-            <div className="rounded-lg bg-gray-50 p-3">
-              <div className="text-xs text-gray-500">Color</div>
-              <div className="font-medium">{p.color ?? "—"}</div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Gender</dt>
+              <dd className="text-sm">{p.gender}</dd>
             </div>
-          </div>
-
-          {/* Age / Weight / Gender */}
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-lg bg-gray-50 p-3">
-              <div className="text-xs text-gray-500">Age</div>
-              <div className="font-medium">{ageLabel(p.ageYears, p.ageMonths)}</div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Color</dt>
+              <dd className="text-sm">{p.color ?? "—"}</dd>
             </div>
-            <div className="rounded-lg bg-gray-50 p-3">
-              <div className="text-xs text-gray-500">Weight</div>
-              <div className="font-medium">
-                {typeof p.weightKg === "number" ? `${p.weightKg} kg` : "—"}
-              </div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Age</dt>
+              <dd className="text-sm">{ageLabel(p.ageYears, p.ageMonths)}</dd>
             </div>
-            <div className="rounded-lg bg-gray-50 p-3">
-              <div className="text-xs text-gray-500">Gender</div>
-              <div className="font-medium">
-                {p.gender[0] + p.gender.slice(1).toLowerCase()}
-              </div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Weight</dt>
+              <dd className="text-sm">{typeof p.weightKg === "number" ? `${p.weightKg} kg` : "—"}</dd>
             </div>
-          </div>
-
-          {/* Owner / Microchip */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-lg bg-gray-50 p-3">
-              <div className="text-xs text-gray-500">Owner</div>
-              <div className="font-medium">{p.ownerName ?? "—"}</div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Owner</dt>
+              <dd className="text-sm">{p.ownerName ?? "—"}</dd>
             </div>
-            <div className="rounded-lg bg-gray-50 p-3">
-              <div className="text-xs text-gray-500">Microchip ID</div>
-              <div className="font-medium">{p.microchipId || "—"}</div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Microchip ID</dt>
+              <dd className="text-sm">{p.microchipId ?? "—"}</dd>
             </div>
-          </div>
-
-          {/* Flags */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-lg bg-gray-50 p-3">
-              <div className="text-xs text-gray-500">Vaccinated</div>
-              <div className="font-medium">{yesNoBadge(p.vaccinated)}</div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Vaccinated</dt>
+              <dd className="text-sm">{p.vaccinated ? "Yes" : "No"}</dd>
             </div>
-            <div className="rounded-lg bg-gray-50 p-3">
-              <div className="text-xs text-gray-500">Neutered / Spayed</div>
-              <div className="font-medium">{yesNoBadge(p.neutered)}</div>
+            <div>
+              <dt className="text-xs uppercase text-gray-500">Neutered / Spayed</dt>
+              <dd className="text-sm">{p.neutered ? "Yes" : "No"}</dd>
             </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <div className="text-sm font-medium">Notes</div>
-            <div className="mt-1 rounded-lg border bg-white p-3 text-sm text-gray-800">
-              {p.notes || "—"}
+            <div className="sm:col-span-2 lg:col-span-3">
+              <dt className="text-xs uppercase text-gray-500">Notes</dt>
+              <dd className="text-sm">{p.notes ?? "—"}</dd>
             </div>
-          </div>
+          </dl>
         </div>
       </div>
 
-      {/* Timeline card (UI-only) */}
+      {/* Timeline + Add forms */}
       <div className="rounded-2xl border bg-white shadow-sm">
-        <div className="border-b p-4">
-          <h2 className="text-base font-medium">Timeline</h2>
-          <p className="text-xs text-gray-500">Appointments, vaccinations, and medications.</p>
+        <div className="flex items-center justify-between border-b p-4">
+          <div>
+            <h2 className="text-base font-medium">Timeline</h2>
+            <p className="text-xs text-gray-500">Appointments, vaccinations, and medications.</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setShowVacForm((v) => !v); setShowMedForm(false); }}
+              className="rounded-xl border px-3 py-1.5 text-sm hover:bg-gray-50"
+            >
+              {showVacForm ? "Close Vaccine Form" : "Add Vaccine"}
+            </button>
+            <button
+              onClick={() => { setShowMedForm((v) => !v); setShowVacForm(false); }}
+              className="rounded-xl border px-3 py-1.5 text-sm hover:bg-gray-50"
+            >
+              {showMedForm ? "Close Medication Form" : "Add Medication"}
+            </button>
+          </div>
         </div>
 
+        {/* Forms (toggle) */}
+        {(showVacForm || showMedForm) && (
+          <div className="border-b p-4 sm:p-6">
+            {showVacForm && (
+              <form onSubmit={addVaccine} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600">Date</label>
+                  <input
+                    type="date"
+                    value={vac.date}
+                    onChange={(e) => setVac((f) => ({ ...f, date: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600">Vaccine Name *</label>
+                  <input
+                    value={vac.name}
+                    onChange={(e) => setVac((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Rabies, DHPP, Bordetella…"
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600">Next Due (optional)</label>
+                  <input
+                    type="date"
+                    value={vac.nextDue}
+                    onChange={(e) => setVac((f) => ({ ...f, nextDue: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div className="lg:col-span-3">
+                  <label className="block text-xs font-medium text-gray-600">Note (optional)</label>
+                  <input
+                    value={vac.note}
+                    onChange={(e) => setVac((f) => ({ ...f, note: e.target.value }))}
+                    placeholder="Any observations…"
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div className="lg:col-span-3">
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm hover:bg-blue-700"
+                  >
+                    Save Vaccine
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {showMedForm && (
+              <form onSubmit={addMedication} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600">Date</label>
+                  <input
+                    type="date"
+                    value={med.date}
+                    onChange={(e) => setMed((f) => ({ ...f, date: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600">Medication Name *</label>
+                  <input
+                    value={med.name}
+                    onChange={(e) => setMed((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Amoxicillin, Bravecto…"
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600">Dosage</label>
+                  <input
+                    value={med.dosage}
+                    onChange={(e) => setMed((f) => ({ ...f, dosage: e.target.value }))}
+                    placeholder="e.g., 50mg twice daily"
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600">Duration</label>
+                  <input
+                    value={med.duration}
+                    onChange={(e) => setMed((f) => ({ ...f, duration: e.target.value }))}
+                    placeholder="e.g., 7 days"
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div className="lg:col-span-2">
+                  <label className="block text-xs font-medium text-gray-600">Note (optional)</label>
+                  <input
+                    value={med.note}
+                    onChange={(e) => setMed((f) => ({ ...f, note: e.target.value }))}
+                    placeholder="Any instructions or observations…"
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div className="lg:col-span-3">
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm hover:bg-blue-700"
+                  >
+                    Save Medication
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* Timeline list */}
         <div className="p-4 sm:p-6">
-          {MOCK_TIMELINE.length === 0 ? (
+          {sorted.length === 0 ? (
             <div className="text-sm text-gray-600">No history yet.</div>
           ) : (
             <ul className="space-y-4">
-              {MOCK_TIMELINE.map((e) => (
+              {sorted.map((e) => (
                 <li key={e.id} className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-gray-300" />
                   <div className="flex-1 rounded-xl border bg-gray-50 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="text-sm font-medium">{e.title}</div>
-                      <div className="text-xs text-gray-500">{e.date}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs text-gray-500">{e.date}</div>
+                        {/* tiny delete button */}
+                        <button
+                          onClick={() => removeEntry(e.id)}
+                          className="rounded-md px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
+                          title="Remove from timeline (UI-only)"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       {typeBadge(e.type)}
