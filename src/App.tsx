@@ -11,6 +11,20 @@ import VetsPage from "./pages/Vets";
 import VetDetailsPage from "./pages/VetDetails";
 import AddVetPage from "./pages/AddVet";
 import EditVetPage from "./pages/EditVet";
+import OwnersPage from "./pages/Owners";
+import AddOwnerPage from "./pages/AddOwner";
+import OwnerDetailsPage from "./pages/OwnerDetails";
+import EditOwnerPage from "./pages/EditOwner";
+import AppointmentsPage from "./pages/Appointments";
+import AddAppointmentPage from "./pages/AddAppointment";
+import AppointmentDetailsPage from "./pages/AppointmentDetails";
+import InvoicesPage from "./pages/Invoices";
+import InvoiceDetailsPage from "./pages/InvoiceDetails";
+import AddInvoicePage from "./pages/AddInvoice";
+import EditInvoicePage from "./pages/EditInvoice";
+import ApptCalendarPage from "./pages/ApptCalendar";
+import HealthPage from "./pages/Health";
+
 
 
 // simple stub pages (we'll design later)
@@ -52,15 +66,37 @@ export default function App() {
 	<Route path="/vets/:id" element={<AppShell><VetDetailsPage /></AppShell>} />
 	<Route path="/vets/:id/edit" element={<AppShell><EditVetPage /></AppShell>} />
 
-        {/* Other modules */}
-        <Route path="/owners" element={<AppShell><Owners /></AppShell>} />
-        <Route path="/appointments" element={<AppShell><Appointments /></AppShell>} />
-        <Route path="/invoices" element={<AppShell><Invoices /></AppShell>} />
-        <Route path="/health" element={<AppShell><HealthRecords /></AppShell>} />
+	{/* Owners Module */}
+	<Route path="/owners" element={<AppShell><OwnersPage /></AppShell>} />
+	<Route path="/owners/add" element={<AppShell><AddOwnerPage /></AppShell>} />
+	<Route path="/owners/:id" element={<AppShell><OwnerDetailsPage /></AppShell>} />
+	<Route path="/owners/:id/edit" element={<AppShell><EditOwnerPage /></AppShell>} />
+
+
+	{/* Appointments Module*/}
+        <Route path="/appointments" element={<AppShell><AppointmentsPage /></AppShell>} />
+	<Route path="/appointments/:id" element={<AppShell><AppointmentDetailsPage /></AppShell>} />
+
+
+	{/* Invoices Module */}
+	<Route path="/invoices" element={<AppShell><InvoicesPage /></AppShell>} />
+	<Route path="/invoices/:id" element={<AppShell><InvoiceDetailsPage /></AppShell>} />
+	<Route path="/invoices/add" element={<AppShell><AddInvoicePage /></AppShell>} />
+	<Route path="/invoices/:id/edit" element={<AppShell><EditInvoicePage /></AppShell>} />
+
+
+	{/* Appt Calendar */}
+	<Route path="/appointments/calendar" element={<AppShell><ApptCalendarPage /></AppShell>} />
+
+
+	{/* Health Module */}
+	<Route path="/health" element={<AppShell><HealthPage /></AppShell>} />
+
+
+	{/* Other modules */}
         <Route path="/settings" element={<AppShell><Settings /></AppShell>} />
 
-        {/* Redirects & 404 */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* Redirects & 404 */}        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<AppShell><NotFound /></AppShell>} />
       </Routes>
     </BrowserRouter>

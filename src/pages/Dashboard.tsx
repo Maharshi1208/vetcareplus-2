@@ -1,13 +1,22 @@
+
 import React from "react";
 import StatCard from "../components/dashboard/StatCard";
 import RecentActivity from "../components/dashboard/RecentActivity";
 import AnalyticsLine from "../components/dashboard/AnalyticsLine";
 import { PawPrint, CalendarDays, Users, DollarSign } from "lucide-react";
+import ApiHealth from "../components/system/ApiHealth";
+
 
 export default function Dashboard() {
   return (
     <div className="space-y-6">
-      {/* 1) Top KPI cards */}
+      {/* Header + API health (UI-only) */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <ApiHealth />
+      </div>
+
+   {/* 1) Top KPI cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Total Pets"
