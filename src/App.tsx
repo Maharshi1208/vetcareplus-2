@@ -18,6 +18,10 @@ import EditOwnerPage from "./pages/EditOwner";
 import AppointmentsPage from "./pages/Appointments";
 import AddAppointmentPage from "./pages/AddAppointment";
 import AppointmentDetailsPage from "./pages/AppointmentDetails";
+import InvoicesPage from "./pages/Invoices";
+import InvoiceDetailsPage from "./pages/InvoiceDetails";
+import AddInvoicePage from "./pages/AddInvoice";
+import EditInvoicePage from "./pages/EditInvoice";
 
 
 
@@ -71,8 +75,15 @@ export default function App() {
         <Route path="/appointments" element={<AppShell><AppointmentsPage /></AppShell>} />
 	<Route path="/appointments/:id" element={<AppShell><AppointmentDetailsPage /></AppShell>} />
 
+
+	{/* Invoices Module */}
+	<Route path="/invoices" element={<AppShell><InvoicesPage /></AppShell>} />
+	<Route path="/invoices/:id" element={<AppShell><InvoiceDetailsPage /></AppShell>} />
+	<Route path="/invoices/add" element={<AppShell><AddInvoicePage /></AppShell>} />
+	<Route path="/invoices/:id/edit" element={<AppShell><EditInvoicePage /></AppShell>} />
+
+
 	{/* Other modules */}
-        <Route path="/invoices" element={<AppShell><Invoices /></AppShell>} />
         <Route path="/health" element={<AppShell><HealthRecords /></AppShell>} />
         <Route path="/settings" element={<AppShell><Settings /></AppShell>} />
 
