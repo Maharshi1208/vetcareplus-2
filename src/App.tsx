@@ -24,6 +24,8 @@ import AddInvoicePage from "./pages/AddInvoice";
 import EditInvoicePage from "./pages/EditInvoice";
 import ApptCalendarPage from "./pages/ApptCalendar";
 import HealthPage from "./pages/Health";
+import PayCheckoutPage from "./pages/PayCheckout";
+import PayResultPage from "./pages/PayResult";
 
 
 
@@ -92,6 +94,10 @@ export default function App() {
 	{/* Health Module */}
 	<Route path="/health" element={<AppShell><HealthPage /></AppShell>} />
 
+
+	{/* Payment Module (MOCK) */}
+	<Route path="/pay/checkout/:apptId" element={<AppShell><PayCheckoutPage /></AppShell>} />
+	<Route path="/pay/result" element={<AppShell><PayResultPage /></AppShell>} />
 
 	{/* Other modules */}
         <Route path="/settings" element={<AppShell><Settings /></AppShell>} />
