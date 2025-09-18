@@ -142,6 +142,11 @@ export default function PetDetailsPage() {
     });
   }
 
+  // ---- NEW: tiny delete (UI-only) ----
+  function removeEntry(entryId: string) {
+    setTimeline((t) => t.filter((x) => x.id !== entryId));
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -357,7 +362,17 @@ export default function PetDetailsPage() {
                   <div className="flex-1 rounded-xl border bg-gray-50 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="text-sm font-medium">{e.title}</div>
-                      <div className="text-xs text-gray-500">{e.date}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs text-gray-500">{e.date}</div>
+                        {/* tiny delete button */}
+                        <button
+                          onClick={() => removeEntry(e.id)}
+                          className="rounded-md px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
+                          title="Remove from timeline (UI-only)"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       {typeBadge(e.type)}
@@ -373,4 +388,3 @@ export default function PetDetailsPage() {
     </div>
   );
 }
-
