@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '../lib/db';
-import { authRequired, AuthedRequest } from '../middleware/auth';
+import { prisma } from '../lib/db.js';
+import { authRequired, AuthedRequest } from '../middleware/auth.js';
 import {
   sendApptBooked,
   sendApptRescheduled,
   sendApptCancelled,
-} from '../lib/mailer';
+} from '../lib/mailer.js';
 
 // ---------- helpers ----------
 const isAdmin = (req: AuthedRequest) => req.user?.role === 'ADMIN';
@@ -46,11 +46,12 @@ async function withinAvailability(vetId: string, start: Date, end: Date) {
   const e = minutesOfDayLocal(end);
   if (!(e > s)) return false;
 
-  const slots = await prisma.vetAvailability.findMany({
-    where: { vetId, weekday: wd }
-  });
-  return slots.some(slot => s >= slot.startMinutes && e <= slot.endMinutes);
-}
+const slots = await prisma.vetAvailability.findMany({
+     where: { vetId, weekday: wd },
+     select: { startMinutes: true, endMinutes: true }
+   });
+   // ok if any slot fully contains [s,e)
+   return slots.some((slot) => s >= slot.startMinutes && e <= slot.endMinutes);}
 
 // conflict with existing appointments?
 async function apptConflict(

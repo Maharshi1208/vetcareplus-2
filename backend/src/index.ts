@@ -5,36 +5,36 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
-import { env } from './config/env';
-import { rateLimiter } from './middleware/rateLimit';
-import { prisma } from './lib/db';
+import { env } from './config/env.js';
+import { rateLimiter } from './middleware/rateLimit.js';
+import { prisma } from './lib/db.js';
 
-import reportRoutes from './report/routes';
-import payRoutes from './pay/routes';
-import apptRoutes from './appt/routes';
-import vetRoutes from './vet/routes';
-import petRoutes from './pet/routes';
-import adminRoutes from './admin/routes';
-import authRoutes from './auth/routes';
-import swaggerUi from "swagger-ui-express";
-import { getSpec } from "./docs/openapi";
+import reportRoutes from './report/routes.js';
+import payRoutes from './pay/routes.js';
+import apptRoutes from './appt/routes.js';
+import vetRoutes from './vet/routes.js';
+import petRoutes from './pet/routes.js';
+import adminRoutes from './admin/routes.js';
+import authRoutes from './auth/routes.js';
 
+import swaggerUi from 'swagger-ui-express';
+import { getSpec } from './docs/openapi.js';
 
 const app = express();
-// OpenAPI JSON + Swagger UI
-app.get("/docs/openapi.json", (req, res) => {
-  const origin = `${req.protocol}://${req.get("host")}`;
-  res.json(getSpec(origin));
+
+/** OpenAPI JSON + Swagger UI */
+app.get('/docs/openapi.json', (_req, res) => {
+  // getSpec currently takes no parameters in your repo
+  res.json(getSpec());
 });
 app.use(
-  "/docs",
+  '/docs',
   swaggerUi.serve,
   swaggerUi.setup(undefined, {
-    swaggerOptions: { url: "/docs/openapi.json" },
-    customSiteTitle: "VetCare+ API Docs",
+    swaggerOptions: { url: '/docs/openapi.json' },
+    customSiteTitle: 'VetCare+ API Docs',
   })
 );
-
 
 /** Security & infra */
 app.use(helmet());

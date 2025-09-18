@@ -1,10 +1,12 @@
+// backend/src/pay/routes.ts
 import { Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '../lib/db';
-import { authRequired, AuthedRequest } from '../middleware/auth';
-import { sendPaymentReceipt } from '../lib/mailer';
+import { prisma } from '../lib/db.js';
+import { authRequired, AuthedRequest } from '../middleware/auth.js';
+import { sendPaymentReceipt } from '../lib/mailer.js';
 
 const router = Router();
+
 const isAdmin = (req: AuthedRequest) => req.user?.role === 'ADMIN';
 
 async function canUseAppointment(req: AuthedRequest, apptId: string) {
@@ -29,11 +31,15 @@ const checkoutSchema = z.object({
   simulate: z.enum(['SUCCESS', 'FAILED']),
 });
 
+// POST /pay/checkout
 router.post('/checkout', authRequired, async (req: AuthedRequest, res) => {
   const parsed = checkoutSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  }
 
   const { appointmentId, amountCents, currency, method, simulate } = parsed.data;
+
   if (!(await canUseAppointment(req, appointmentId))) {
     return res.status(403).json({ ok: false, error: 'Forbidden: not your appointment' });
   }
@@ -46,9 +52,10 @@ router.post('/checkout', authRequired, async (req: AuthedRequest, res) => {
       pet: { select: { name: true, ownerId: true } },
       vet: { select: { name: true } },
       start: true,
-      end: true,
+      end: true
     }
   });
+
   if (!appt) return res.status(404).json({ ok: false, error: 'Appointment not found' });
   if (appt.status !== 'BOOKED') {
     return res.status(400).json({ ok: false, error: 'Only BOOKED appts can be paid' });
@@ -78,25 +85,18 @@ router.post('/checkout', authRequired, async (req: AuthedRequest, res) => {
     return res.status(402).json({ ok: false, error: 'Payment failed', payment });
   }
 
-  // Fire-and-forget receipt email (MailHog)
+  // Fire-and-forget receipt email to the owner (safe: logs on failure)
   try {
     const owner = await prisma.user.findUnique({
-      where: { id: appt.pet.ownerId },
+      where: { id: appt!.pet.ownerId },
       select: { email: true },
     });
     if (owner?.email && payment.receiptNo) {
-      void sendPaymentReceipt(
-        owner.email,
-        appt.pet.name,
-        appt.vet.name,
-        appt.start,
-        payment.amountCents,
-        payment.currency,
-        payment.receiptNo
-      );
+      // NOTE: sendPaymentReceipt expects (to, receiptNo, amountCents, currency)
+      void sendPaymentReceipt(owner.email, payment.receiptNo, payment.amountCents, payment.currency);
     }
-  } catch {
-    // swallow email errors; they are logged in mailer
+  } catch (e) {
+    // mail send errors are already logged in mailer
   }
 
   return res.status(201).json({
@@ -114,10 +114,11 @@ router.post('/checkout', authRequired, async (req: AuthedRequest, res) => {
       method: payment.method ?? 'CARD',
       createdAt: payment.createdAt,
       note: 'Mock receipt (non-binding)',
-    }
+    },
   });
 });
 
+// GET /pay/appointment/:appointmentId — list payments for an appointment
 router.get('/appointment/:appointmentId', authRequired, async (req: AuthedRequest, res) => {
   const { appointmentId } = req.params;
   if (!(await canUseAppointment(req, appointmentId))) {
@@ -130,11 +131,13 @@ router.get('/appointment/:appointmentId', authRequired, async (req: AuthedReques
   res.json({ ok: true, payments: rows });
 });
 
+// GET /pay/receipt/:paymentId — fetch a receipt for a SUCCESS payment
 router.get('/receipt/:paymentId', authRequired, async (req: AuthedRequest, res) => {
   const pay = await prisma.payment.findUnique({
     where: { id: req.params.paymentId },
     include: { appointment: { include: { pet: true, vet: true } } }
   });
+
   if (!pay) return res.status(404).json({ ok: false, error: 'Not found' });
   if (!isAdmin(req) && pay.appointment.pet.ownerId !== req.user!.sub) {
     return res.status(403).json({ ok: false, error: 'Forbidden' });

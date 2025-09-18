@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '../lib/db';
-import { hashPassword, verifyPassword } from '../lib/hash';
-import { signAccessToken } from '../lib/jwt';
-import { authRequired } from '../middleware/auth';
+import { prisma } from '../lib/db.js';
+import { hashPassword, verifyPassword } from '../lib/hash.js';
+import { signAccessToken } from '../lib/jwt.js';
+import { authRequired } from '../middleware/auth.js';
 
 const router = Router();
 

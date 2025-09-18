@@ -6,3 +6,17 @@ infra/.env
 .env.*
 **/.env
 **/.env.*
+# env & secrets
+*.env
+infra/.env
+backend/.env
+
+# builds
+**/dist/
+**/node_modules/
+
+# misc
+*.log
+.DS_Store
+infra/*.csv
+*.bak

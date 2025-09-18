@@ -1,82 +1,63 @@
+// backend/src/lib/mailer.ts
 import nodemailer from 'nodemailer';
+import { env } from '../config/env.js';
 
-const MAIL_HOST = process.env.MAIL_HOST || 'localhost';
-const MAIL_PORT = Number(process.env.MAIL_PORT || 1025);
-const MAIL_FROM = process.env.MAIL_FROM || 'VetCare+ <no-reply@vetcare.local>';
-
-export const transporter = nodemailer.createTransport({
-  host: MAIL_HOST,
-  port: MAIL_PORT,
-  secure: false,
+const transporter = nodemailer.createTransport({
+  host: env.SMTP_HOST,           // in Docker: "mailhog" (from compose)
+  port: env.SMTP_PORT,           // 1025 for MailHog
+  secure: env.SMTP_SECURE,       // false for MailHog
+  ...(env.SMTP_USER && env.SMTP_PASS
+    ? { auth: { user: env.SMTP_USER, pass: env.SMTP_PASS } }
+    : {}),
 });
 
-type SendArgs = { to: string; subject: string; text?: string; html?: string };
-export async function sendMail({ to, subject, text, html }: SendArgs) {
+function fmt(d: Date) {
+  return new Date(d).toLocaleString('en-CA', { hour12: false });
+}
+
+// Fire-and-forget wrapper (logs but never throws)
+async function safeSend(mail: nodemailer.SendMailOptions) {
   try {
-    await transporter.sendMail({ from: MAIL_FROM, to, subject, text, html });
+    const info = await transporter.sendMail({ from: env.SMTP_FROM, ...mail });
+    console.log('mail sent:', info.messageId);
   } catch (err) {
     console.error('sendMail error:', err);
   }
 }
 
-export const fmtDate = (d: Date) => new Date(d).toLocaleString();
-
 export async function sendApptBooked(to: string, pet: string, vet: string, start: Date, end: Date) {
-  const subject = `Appointment booked for ${pet}`;
-  const text = `Hi,
-
-Your appointment has been booked:
-Pet: ${pet}
-Vet: ${vet}
-Start: ${fmtDate(start)}
-End: ${fmtDate(end)}
-
-— VetCare+`;
-  await sendMail({ to, subject, text });
+  await safeSend({
+    to,
+    subject: `Appointment booked for ${pet}`,
+    text: `Your appointment with ${vet} is booked.\nStart: ${fmt(start)}\nEnd: ${fmt(end)}`,
+    html: `<p>Your appointment with <b>${vet}</b> is booked.<br/>Start: ${fmt(start)}<br/>End: ${fmt(end)}</p>`,
+  });
 }
 
 export async function sendApptRescheduled(to: string, pet: string, vet: string, start: Date, end: Date) {
-  const subject = `Appointment rescheduled for ${pet}`;
-  const text = `Hi,
-
-Your appointment has been rescheduled:
-Pet: ${pet}
-Vet: ${vet}
-New Start: ${fmtDate(start)}
-New End: ${fmtDate(end)}
-
-— VetCare+`;
-  await sendMail({ to, subject, text });
+  await safeSend({
+    to,
+    subject: `Appointment rescheduled for ${pet}`,
+    text: `Rescheduled with ${vet}.\nStart: ${fmt(start)}\nEnd: ${fmt(end)}`,
+    html: `<p>Rescheduled with <b>${vet}</b>.<br/>Start: ${fmt(start)}<br/>End: ${fmt(end)}</p>`,
+  });
 }
 
-export async function sendApptCancelled(to: string, pet: string, vet: string, original: Date) {
-  const subject = `Appointment cancelled for ${pet}`;
-  const text = `Hi,
-
-Your appointment was cancelled:
-Pet: ${pet}
-Vet: ${vet}
-Original Start: ${fmtDate(original)}
-
-— VetCare+`;
-  await sendMail({ to, subject, text });
+export async function sendApptCancelled(to: string, pet: string, vet: string, start: Date) {
+  await safeSend({
+    to,
+    subject: `Appointment cancelled for ${pet}`,
+    text: `Cancelled with ${vet}.\nWas at: ${fmt(start)}`,
+    html: `<p>Cancelled with <b>${vet}</b>.<br/>Was at: ${fmt(start)}</p>`,
+  });
 }
 
-export async function sendPaymentReceipt(
-  to: string, pet: string, vet: string, start: Date,
-  amountCents: number, currency: string, receiptNo: string
-) {
-  const amount = (amountCents / 100).toFixed(2) + ' ' + currency;
-  const subject = `Receipt ${receiptNo} — ${pet}`;
-  const text = `Hi,
-
-Payment successful.
-Receipt: ${receiptNo}
-Pet: ${pet}
-Vet: ${vet}
-Appointment: ${fmtDate(start)}
-Amount: ${amount}
-
-— VetCare+`;
-  await sendMail({ to, subject, text });
+export async function sendPaymentReceipt(to: string, receiptNo: string, amountCents: number, currency: string) {
+  const amount = (amountCents / 100).toFixed(2);
+  await safeSend({
+    to,
+    subject: `Receipt ${receiptNo}`,
+    text: `Payment received: ${currency} ${amount}\nReceipt: ${receiptNo}`,
+    html: `<p>Payment received: <b>${currency} ${amount}</b><br/>Receipt: <code>${receiptNo}</code></p>`,
+  });
 }

@@ -1,17 +1,15 @@
-version: "3.9"
+# no "version:" key needed
 
 services:
   db:
     image: postgres:16
     container_name: vetcare_db
-    restart: unless-stopped
-    env_file: ./.env
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:-vc_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vc_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-vetcare_db}
     ports:
-      - "${PG_PORT:-5432}:5432"
+      - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
     networks:
@@ -20,25 +18,48 @@ services:
   pgadmin:
     image: dpage/pgadmin4:8
     container_name: vetcare_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+    ports:
+      - "5050:80"
     depends_on:
       - db
-    restart: unless-stopped
-    env_file: ./.env
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
-    ports:
-      - "${PGADMIN_PORT:-5050}:80"
     networks:
       - vetcare_net
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
     container_name: vetcare_mailhog
-    restart: unless-stopped
     ports:
-      - "${MAILHOG_SMTP_PORT:-1025}:1025" # SMTP
-      - "${MAILHOG_UI_PORT:-8025}:8025"   # Web UI
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    networks:
+      - vetcare_net
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: vetcare_api
+    depends_on:
+      - db
+      - mailhog
+    environment:
+      NODE_ENV: "production"
+      PORT: "4000"
+      # Frontend origin; adjust if needed
+      CORS_ORIGIN: "${CORS_ORIGIN:-http://localhost:5173}"
+      # Prisma points to the db service name
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-vc_user}:${POSTGRES_PASSWORD:-vc_pass}@db:5432/${POSTGRES_DB:-vetcare_db}?schema=public"
+      # REQUIRED by your env schema
+      JWT_SECRET: "${JWT_SECRET:-change-me-please}"
+      # MailHog SMTP
+      SMTP_HOST: "${SMTP_HOST:-mailhog}"
+      SMTP_PORT: "${SMTP_PORT:-1025}"
+      SMTP_FROM: "${SMTP_FROM:-no-reply@vetcare.local}"
+    ports:
+      - "4000:4000"
     networks:
       - vetcare_net
 
@@ -47,4 +68,3 @@ volumes:
 
 networks:
   vetcare_net:
-    driver: bridge

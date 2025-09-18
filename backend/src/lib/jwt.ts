@@ -1,12 +1,22 @@
-import jwt from 'jsonwebtoken';
-const SECRET = process.env.JWT_SECRET as string;
-const EXPIRES_IN = process.env.JWT_EXPIRES || '1d';
+import jwt, { JwtPayload, SignOptions } from "jsonwebtoken";
+import { env } from "../config/env.js";
 
-export type JwtPayload = { sub: string; role: 'OWNER'|'VET'|'ADMIN'; email: string };
+const SECRET: string = env.JWT_SECRET;
 
-export function signAccessToken(payload: JwtPayload) {
-  return jwt.sign(payload, SECRET, { expiresIn: EXPIRES_IN });
+// re-export for other modules
+export type { JwtPayload };
+
+export function signAccessToken(
+  payload: object,
+  opts: SignOptions = { expiresIn: "1d" }
+): string {
+  return jwt.sign(payload, SECRET, opts);
 }
-export function verifyAccessToken(token: string): JwtPayload {
-  return jwt.verify(token, SECRET) as JwtPayload;
+
+export function verifyAccessToken<T extends object = JwtPayload>(token: string): T {
+  return jwt.verify(token, SECRET) as T;
 }
+
+// keep the newer names too (aliases)
+export const signJwt = signAccessToken;
+export const verifyJwt = verifyAccessToken;

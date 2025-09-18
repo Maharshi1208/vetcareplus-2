@@ -1,22 +1,21 @@
-import 'dotenv/config';
+// backend/src/config/env.ts
 import { z } from 'zod';
 
 const schema = z.object({
-  NODE_ENV: z.enum(['development','test','production']).default('development'),
+  NODE_ENV: z.string().default('development'),
   PORT: z.coerce.number().default(4000),
+  CORS_ORIGIN: z.string().default('*'),
 
-  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  DATABASE_URL: z.string(),
 
   JWT_SECRET: z.string().min(20, 'JWT_SECRET must be set'),
-  JWT_EXPIRES: z.string().default('1d'),
 
-  CORS_ORIGIN: z.string().default('http://localhost:5173'),
-
-  MAIL_HOST: z.string().default('localhost'),
-  MAIL_PORT: z.coerce.number().default(1025),
-  MAIL_USER: z.string().optional(),
-  MAIL_PASS: z.string().optional(),
-  MAIL_FROM: z.string().default('VetCare+ <no-reply@vetcare.local>'),
+  SMTP_HOST: z.string().default(process.env.NODE_ENV === 'production' ? 'mailhog' : '127.0.0.1'),
+  SMTP_PORT: z.coerce.number().default(1025),
+  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_FROM: z.string().email().default('no-reply@vetcare.local'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
 });
 
 export const env = schema.parse(process.env);

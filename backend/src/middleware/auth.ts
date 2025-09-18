@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyAccessToken, JwtPayload } from '../lib/jwt';
+import { verifyAccessToken, JwtPayload } from '../lib/jwt.js';
 
 export type AuthedRequest = Request & { user?: JwtPayload };
 

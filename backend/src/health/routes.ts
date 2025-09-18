@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '../lib/db';
-import { authRequired, AuthedRequest } from '../middleware/auth';
+import { prisma } from '../lib/db.js';
+import { authRequired, AuthedRequest } from '../middleware/auth.js';
 
 const router = Router();
 const isAdmin = (req: AuthedRequest) => req.user?.role === 'ADMIN';

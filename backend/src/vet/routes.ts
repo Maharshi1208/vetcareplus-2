@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '../lib/db';
-import { authRequired, AuthedRequest, requireRole } from '../middleware/auth';
-import { hhmmToMinutes } from '../lib/time';
+import { prisma } from '../lib/db.js';
+import { authRequired, AuthedRequest, requireRole } from '../middleware/auth.js';
+import { hhmmToMinutes } from '../lib/time.js';
 
 const router = Router();
 const adminOnly = [authRequired, requireRole('ADMIN')] as const;
