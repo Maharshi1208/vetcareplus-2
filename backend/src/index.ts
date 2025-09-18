@@ -16,8 +16,25 @@ import vetRoutes from './vet/routes';
 import petRoutes from './pet/routes';
 import adminRoutes from './admin/routes';
 import authRoutes from './auth/routes';
+import swaggerUi from "swagger-ui-express";
+import { getSpec } from "./docs/openapi";
+
 
 const app = express();
+// OpenAPI JSON + Swagger UI
+app.get("/docs/openapi.json", (req, res) => {
+  const origin = `${req.protocol}://${req.get("host")}`;
+  res.json(getSpec(origin));
+});
+app.use(
+  "/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(undefined, {
+    swaggerOptions: { url: "/docs/openapi.json" },
+    customSiteTitle: "VetCare+ API Docs",
+  })
+);
+
 
 /** Security & infra */
 app.use(helmet());
