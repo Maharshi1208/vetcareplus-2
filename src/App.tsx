@@ -22,6 +22,7 @@ import InvoicesPage from "./pages/Invoices";
 import InvoiceDetailsPage from "./pages/InvoiceDetails";
 import AddInvoicePage from "./pages/AddInvoice";
 import EditInvoicePage from "./pages/EditInvoice";
+import ApptCalendarPage from "./pages/ApptCalendar";
 
 
 
@@ -81,6 +82,10 @@ export default function App() {
 	<Route path="/invoices/:id" element={<AppShell><InvoiceDetailsPage /></AppShell>} />
 	<Route path="/invoices/add" element={<AppShell><AddInvoicePage /></AppShell>} />
 	<Route path="/invoices/:id/edit" element={<AppShell><EditInvoicePage /></AppShell>} />
+
+
+	{/* Appt Calendar */}
+	<Route path="/appointments/calendar" element={<AppShell><ApptCalendarPage /></AppShell>} />
 
 
 	{/* Other modules */}
