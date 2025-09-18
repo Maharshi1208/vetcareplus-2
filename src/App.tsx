@@ -23,6 +23,7 @@ import InvoiceDetailsPage from "./pages/InvoiceDetails";
 import AddInvoicePage from "./pages/AddInvoice";
 import EditInvoicePage from "./pages/EditInvoice";
 import ApptCalendarPage from "./pages/ApptCalendar";
+import HealthPage from "./pages/Health";
 
 
 
@@ -88,12 +89,14 @@ export default function App() {
 	<Route path="/appointments/calendar" element={<AppShell><ApptCalendarPage /></AppShell>} />
 
 
+	{/* Health Module */}
+	<Route path="/health" element={<AppShell><HealthPage /></AppShell>} />
+
+
 	{/* Other modules */}
-        <Route path="/health" element={<AppShell><HealthRecords /></AppShell>} />
         <Route path="/settings" element={<AppShell><Settings /></AppShell>} />
 
-        {/* Redirects & 404 */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* Redirects & 404 */}        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<AppShell><NotFound /></AppShell>} />
       </Routes>
     </BrowserRouter>
