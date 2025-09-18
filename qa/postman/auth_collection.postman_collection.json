@@ -2,87 +2,73 @@
   "info": {
     "name": "VetCare+ AUTH QA",
     "_postman_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-    "description": "Postman tests for VetCare+ Authentication APIs",
+    "description": "Register/Login tests for VetCare+ API (unique email each run)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:4000" }],
   "item": [
     {
-      "name": "Register — Valid",
+      "name": "Register — Valid (unique)",
+      "event": [
+        { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+          "const ts = Date.now();",
+          "pm.variables.set('regEmail', `user+${ts}@example.com`);",
+          "pm.variables.set('regPass', 'Passw0rd!');"
+        ]}},
+        { "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "pm.test('201/200', () => pm.expect([201,200]).to.include(pm.response.code));",
+          "// backend may return {id,...} or {user:{id,...}}; accept either",
+          "const j = pm.response.json();",
+          "pm.test('Has user id', () => pm.expect((j && (j.id || (j.user && j.user.id)))).to.exist);"
+        ]}}
+      ],
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": { "mode": "raw", "raw": "{\"email\":\"testuser1@example.com\",\"password\":\"Passw0rd!\"}" },
+        "body": { "mode": "raw", "raw": "{\"email\":\"{{regEmail}}\",\"password\":\"{{regPass}}\"}" },
         "url": "{{baseUrl}}/auth/register"
-      },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "exec": [
-            "pm.test('Status is 200 or 201', () => pm.expect([200,201]).to.include(pm.response.code));",
-            "pm.test('Response has user id', () => pm.expect(pm.response.json().user.id).to.exist);"
-          ],
-          "type": "text/javascript"
-        }
-      }]
+      }
     },
     {
-      "name": "Register — Duplicate",
+      "name": "Register — Duplicate (same email)",
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('409/400 duplicate', () => pm.expect([409,400]).to.include(pm.response.code));"
+      ]}}],
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": { "mode": "raw", "raw": "{\"email\":\"testuser1@example.com\",\"password\":\"Passw0rd!\"}" },
+        "body": { "mode": "raw", "raw": "{\"email\":\"{{regEmail}}\",\"password\":\"{{regPass}}\"}" },
         "url": "{{baseUrl}}/auth/register"
-      },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "exec": [
-            "pm.test('Status is 400 or 409', () => pm.expect([400,409]).to.include(pm.response.code));"
-          ],
-          "type": "text/javascript"
-        }
-      }]
+      }
     },
     {
-      "name": "Login — Valid",
+      "name": "Login — Valid (newly registered user)",
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('200 OK', () => pm.expect(pm.response.code).to.eql(200));",
+        "const j = pm.response.json();",
+        "// accept either tokens.access or token",
+        "const token = (j.tokens && j.tokens.access) || j.token;",
+        "pm.collectionVariables.set('accessToken', token);",
+        "pm.test('token present', () => pm.expect(pm.collectionVariables.get('accessToken')).to.exist);"
+      ]}}],
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": { "mode": "raw", "raw": "{\"email\":\"testuser1@example.com\",\"password\":\"Passw0rd!\"}" },
+        "body": { "mode": "raw", "raw": "{\"email\":\"{{regEmail}}\",\"password\":\"{{regPass}}\"}" },
         "url": "{{baseUrl}}/auth/login"
-      },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "exec": [
-            "pm.test('Login succeeds', () => pm.expect(pm.response.code).to.eql(200));",
-            "var json = pm.response.json();",
-            "pm.collectionVariables.set('accessToken', json.tokens.access);"
-          ],
-          "type": "text/javascript"
-        }
-      }]
+      }
     },
     {
       "name": "Login — Wrong Password",
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('401 expected', () => pm.expect(pm.response.code).to.eql(401));"
+      ]}}],
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": { "mode": "raw", "raw": "{\"email\":\"testuser1@example.com\",\"password\":\"WrongPass!\"}" },
+        "body": { "mode": "raw", "raw": "{\"email\":\"{{regEmail}}\",\"password\":\"WrongPass!\"}" },
         "url": "{{baseUrl}}/auth/login"
-      },
-      "event": [{
-        "listen": "test",
-        "script": {
-          "exec": [
-            "pm.test('Status is 401', () => pm.expect(pm.response.code).to.eql(401));"
-          ],
-          "type": "text/javascript"
-        }
-      }]
+      }
     }
-  ],
-  "variable": [
-    { "key": "baseUrl", "value": "http://localhost:4000" }
   ]
 }
