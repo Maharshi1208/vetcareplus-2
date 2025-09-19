@@ -1,0 +1,27 @@
+{
+  "info": {
+    "name": "VetCare+ HEALTH checks",
+    "_postman_id": "00000000-1111-2222-3333-444444444444",
+    "description": "Ping & DB health for VetCare+ API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:4000" }],
+  "item": [
+    {
+      "name": "GET /health",
+      "request": { "method": "GET", "url": "{{baseUrl}}/health" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('200 OK', () => pm.expect(pm.response.code).to.eql(200));",
+        "pm.test('ok true', () => pm.expect(pm.response.json().ok).to.be.true);"
+      ]}}]
+    },
+    {
+      "name": "GET /health/db",
+      "request": { "method": "GET", "url": "{{baseUrl}}/health/db" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('200 OK', () => pm.expect(pm.response.code).to.eql(200));",
+        "pm.test('db ok', () => pm.expect(pm.response.json().ok).to.be.true);"
+      ]}}]
+    }
+  ]
+}
