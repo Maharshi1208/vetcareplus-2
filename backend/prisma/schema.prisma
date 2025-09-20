@@ -37,7 +37,7 @@ model User {
 
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
-  PasswordResetToken PasswordResetToken[]
+  ResetTokens ResetToken[]
 }
 
 model Pet {
@@ -167,15 +167,15 @@ model Payment {
   @@index([appointmentId, status])
 }
 
-model PasswordResetToken {
-  id        String    @id @default(cuid())
-  tokenHash String    @unique
+model ResetToken {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
-  @@index([expiresAt])
+  @@index([token])
 }

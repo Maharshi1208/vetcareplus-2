@@ -61,3 +61,9 @@ export async function sendPaymentReceipt(to: string, receiptNo: string, amountCe
     html: `<p>Payment received: <b>${currency} ${amount}</b><br/>Receipt: <code>${receiptNo}</code></p>`,
   });
 }
+
+export async function sendMail(opts: { to: string; subject: string; html?: string; text?: string }) {
+  /* ... */
+}
+
+export default sendMail;
