@@ -28,6 +28,55 @@ export const openapiSpec: OpenAPIV3.Document = {
   security: [{ bearerAuth: [] }],
   paths: {
     "/ping": { get: { summary: "Ping", responses: { "200": { description: "OK" } } } },
+// inside paths: { ... }
+'/auth/request-reset': {
+  post: {
+    tags: ['Auth'],
+    summary: 'Request password reset',
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: { email: { type: 'string', format: 'email' } },
+            required: ['email'],
+          },
+        },
+      },
+    },
+    responses: {
+      200: { description: 'Always OK (email may or may not exist)', content: { 'application/json': { schema: { type: 'object', properties: { ok: { type: 'boolean' } } } } } },
+    },
+  },
+},
+'/auth/reset-password': {
+  post: {
+    tags: ['Auth'],
+    summary: 'Reset password with token',
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              token: { type: 'string' },
+              password: { type: 'string', minLength: 8 },
+            },
+            required: ['token', 'password'],
+          },
+        },
+      },
+    },
+    responses: {
+      200: { description: 'Password updated', content: { 'application/json': { schema: { type: 'object', properties: { ok: { type: 'boolean' }, message: { type: 'string' } } } } } },
+      400: { description: 'Invalid token or password' },
+    },
+  },
+},
+
+
     "/auth/login": {
       post: {
         summary: "Login",
