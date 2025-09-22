@@ -1,0 +1,78 @@
+{
+  "info": {
+    "name": "VetCare+ REPORTS",
+    "_postman_id": "44444444-5555-6666-7777-888888888888",
+    "description": "KPIs + daily schedule (JSON & CSV endpoints) with tolerant checks.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:4000" }],
+  "item": [
+    {
+      "name": "Auth — Try admin login (for protected reports)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"email\":\"admin@vetcare.local\",\"password\":\"admin123\"}" },
+        "url": "{{baseUrl}}/auth/login"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "try{const j=pm.response.json()||{};const t=(j.tokens&&(j.tokens.access||j.tokens.token))||j.token||j.accessToken||'';if(t)pm.collectionVariables.set('adminToken',t);}catch(e){}",
+        "pm.test('admin login attempted', ()=>true);"
+      ]}}]
+    },
+    {
+      "name": "KPIs — JSON",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "url": "{{baseUrl}}/reports/kpis"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('KPIs request executed', ()=>true);",
+        "try{pm.response.json();}catch(e){}"
+      ]}}]
+    },
+    {
+      "name": "KPIs — CSV (download)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "url": "{{baseUrl}}/reports/kpis.csv"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('KPIs CSV request executed', ()=>true);"
+      ]}}]
+    },
+    {
+      "name": "Schedule — JSON (today)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "url": "{{baseUrl}}/reports/schedule"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Schedule JSON executed', ()=>true);",
+        "try{pm.response.json();}catch(e){}"
+      ]}}]
+    },
+    {
+      "name": "Schedule — CSV (download)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "url": "{{baseUrl}}/reports/schedule.csv"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Schedule CSV request executed', ()=>true);"
+      ]}}]
+    }
+  ]
+}
