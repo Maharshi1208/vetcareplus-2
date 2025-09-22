@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/db.js';
 import { hashPassword, verifyPassword } from '../lib/hash.js';
@@ -7,10 +7,10 @@ import { authRequired } from '../middleware/auth.js';
 import crypto from 'crypto';
 import { env } from '../config/env.js';
 import sendMail from '../lib/mailer.js';
-import type { Request, Response } from 'express';
 
 const router = Router();
 
+/* ------------------------ Schemas ------------------------ */
 const registerSchema = z.object({
   email: z.string().email(),
   name: z.string().min(1).optional(),
@@ -22,14 +22,19 @@ const loginSchema = z.object({
   password: z.string().min(6).max(64),
 });
 
+/* ------------------------ Auth: Register ------------------------ */
 router.post('/register', async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  }
 
   const { email, name, password } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) return res.status(409).json({ ok: false, error: 'Email already registered' });
+  if (existing) {
+    return res.status(409).json({ ok: false, error: 'Email already registered' });
+  }
 
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.create({
@@ -41,9 +46,12 @@ router.post('/register', async (req, res) => {
   return res.status(201).json({ ok: true, user, tokens: { access } });
 });
 
+/* ------------------------ Auth: Login ------------------------ */
 router.post('/login', async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  }
 
   const { email, password } = parsed.data;
 
@@ -55,17 +63,23 @@ router.post('/login', async (req, res) => {
   if (!ok) return res.status(401).json({ ok: false, error: 'Invalid credentials' });
 
   const access = signAccessToken({ sub: user.id, email: user.email, role: user.role });
-  const safeUser = { id: user.id, email: user.email, name: user.name, role: user.role, suspended: user.suspended, createdAt: user.createdAt };
+  const safeUser = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    suspended: user.suspended,
+    createdAt: user.createdAt,
+  };
   return res.json({ ok: true, user: safeUser, tokens: { access } });
 });
 
+/* ------------------------ Me ------------------------ */
 router.get('/me', authRequired, async (req, res) => {
-  // req.user is set by authRequired
   return res.json({ ok: true, user: req.user });
 });
 
-// ---------------- Password Reset ----------------
-
+/* ------------------------ Password Reset: Request ------------------------ */
 /**
  * POST /auth/request-reset
  * body: { email: string }
@@ -83,10 +97,8 @@ router.post('/request-reset', async (req: Request, res: Response) => {
     select: { id: true, email: true, name: true },
   });
 
-  // Always return ok:true to avoid leaking whether the account exists
-  if (!user) {
-    return res.json({ ok: true });
-  }
+  // Always return ok:true (don’t leak account existence)
+  if (!user) return res.json({ ok: true });
 
   // Invalidate previous unused tokens for this user (optional hardening)
   await prisma.resetToken.updateMany({
@@ -104,14 +116,19 @@ router.post('/request-reset', async (req: Request, res: Response) => {
     data: { userId: user.id, token, expiresAt },
   });
 
-  // Compose link for the frontend
-  const base = env.RESET_LINK_BASE || `${env.FRONTEND_URL}/reset-password`;
-  const resetUrl =
-    base.includes('?') ? `${base}&token=${encodeURIComponent(token)}` :
-    base.endsWith('/') ? `${base}?token=${encodeURIComponent(token)}` :
-    `${base}?token=${encodeURIComponent(token)}`;
+  // Build base URL for the frontend reset page
+  const base =
+    env.RESET_LINK_BASE
+      ?? (env.FRONTEND_URL
+            ? `${env.FRONTEND_URL.replace(/\/$/, '')}/reset-password`
+            : `${env.CORS_ORIGIN.replace(/\/$/, '')}/reset-password`);
 
-  // Email it (MailHog in dev/prod SMTP later)
+  const resetUrl =
+    base.includes('?')
+      ? `${base}&token=${encodeURIComponent(token)}`
+      : `${base}?token=${encodeURIComponent(token)}`;
+
+  // Email it (MailHog in dev)
   try {
     await sendMail({
       to: user.email,
@@ -133,6 +150,7 @@ router.post('/request-reset', async (req: Request, res: Response) => {
   return res.json({ ok: true });
 });
 
+/* ------------------------ Password Reset: Perform ------------------------ */
 /**
  * POST /auth/reset-password
  * body: { token: string, password: string }
@@ -163,9 +181,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
     prisma.resetToken.update({ where: { id: rt.id }, data: { usedAt: new Date() } }),
   ]);
 
-
   return res.json({ ok: true, message: 'Password updated' });
 });
-
 
 export default router;
