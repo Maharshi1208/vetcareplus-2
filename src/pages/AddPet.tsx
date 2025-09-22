@@ -2,9 +2,23 @@ import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { usePets } from "../context/PetsContext";
 
-type SpeciesKey = "Dog" | "Cat" | "Bird" | "Rabbit" | "Reptile" | "Other" | string;
+type SpeciesKey =
+  | "Dog"
+  | "Cat"
+  | "Bird"
+  | "Rabbit"
+  | "Reptile"
+  | "Other"
+  | string;
 
-const SPECIES: SpeciesKey[] = ["Dog", "Cat", "Bird", "Rabbit", "Reptile", "Other"];
+const SPECIES: SpeciesKey[] = [
+  "Dog",
+  "Cat",
+  "Bird",
+  "Rabbit",
+  "Reptile",
+  "Other",
+];
 
 const BREEDS: Record<string, string[]> = {
   Dog: [
@@ -23,21 +37,22 @@ const BREEDS: Record<string, string[]> = {
   Other: ["Other"],
 };
 
-const COLORS = [
-  "Black",
-  "Brown",
-  "White",
-  "Golden",
-  "Gray",
-  "Cream",
-  "Mixed",
-  "Other",
-];
-
+const COLORS = ["Black", "Brown", "White", "Golden", "Gray", "Cream", "Mixed", "Other"];
 const GENDERS: Array<"MALE" | "FEMALE" | "UNKNOWN"> = ["MALE", "FEMALE", "UNKNOWN"];
-
-// Example owners to choose from (user-friendly dropdown)
 const OWNERS = ["Alice", "Bob", "Charlie", "Daisy", "Other"];
+
+const SPECIES_TO_API: Record<string, string> = {
+  Dog: "Dogs",
+  Cat: "Cats",
+  Bird: "Birds",
+  Rabbit: "Rabbits",
+  Reptile: "Reptiles",
+  Other: "Other",
+};
+function toApiSpecies(s: SpeciesKey | ""): string {
+  if (!s) return "Other";
+  return SPECIES_TO_API[s] ?? String(s);
+}
 
 export default function AddPetPage() {
   const navigate = useNavigate();
@@ -60,8 +75,9 @@ export default function AddPetPage() {
     neutered: false,
     notes: "",
   });
-
-  const [errors, setErrors] = useState<{ [k: string]: string }>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const speciesBreeds = useMemo<string[]>(() => {
     if (!form.species || !BREEDS[form.species]) return [];
@@ -77,7 +93,6 @@ export default function AddPetPage() {
     if (form.name.trim().length < 2) e.name = "Name must be at least 2 characters.";
     if (!form.species) e.species = "Please select a species.";
 
-    // Breed: if shown and "Other" selected, require customBreed
     if (speciesBreeds.length > 0) {
       if (!form.breed) e.breed = "Please select a breed.";
       if (form.breed === "Other" && form.customBreed.trim().length < 2) {
@@ -85,12 +100,10 @@ export default function AddPetPage() {
       }
     }
 
-    // Owner: if "Other" chosen, require customOwner
     if (form.ownerName === "Other" && form.customOwner.trim().length < 2) {
       e.customOwner = "Enter owner name.";
     }
 
-    // Age
     if (form.ageYears !== "") {
       const y = Number(form.ageYears);
       if (!Number.isFinite(y) || y < 0 || y > 40) e.ageYears = "0–40 years.";
@@ -100,7 +113,6 @@ export default function AddPetPage() {
       if (!Number.isFinite(m) || m < 0 || m > 11) e.ageMonths = "0–11 months.";
     }
 
-    // Weight
     if (form.weightKg !== "") {
       const w = Number(form.weightKg);
       if (!Number.isFinite(w) || w < 0 || w > 120) e.weightKg = "0–120 kg.";
@@ -110,7 +122,7 @@ export default function AddPetPage() {
     return Object.keys(e).length === 0;
   }
 
-  function onSubmit(ev: React.FormEvent) {
+  async function onSubmit(ev: React.FormEvent) {
     ev.preventDefault();
     if (!validate()) return;
 
@@ -121,23 +133,34 @@ export default function AddPetPage() {
         ? form.customOwner.trim()
         : form.ownerName.trim() || undefined;
 
-    addPet({
+    const payload = {
       name: form.name.trim(),
-      species: (form.species as SpeciesKey) || "Other",
-      breed: finalBreed,
+      species: toApiSpecies((form.species as SpeciesKey) || "Other"),
+      breed: finalBreed ?? null,
       gender: form.gender,
       color: form.color || undefined,
       ageYears: form.ageYears === "" ? undefined : Number(form.ageYears),
       ageMonths: form.ageMonths === "" ? undefined : Number(form.ageMonths),
       weightKg: form.weightKg === "" ? undefined : Number(form.weightKg),
       ownerName: finalOwner,
-      microchipId: form.microchipId.trim() || undefined,
+      microchipId: form.microchipId || undefined,
       vaccinated: form.vaccinated,
       neutered: form.neutered,
       notes: form.notes.trim() || undefined,
-    });
+    };
 
-    navigate("/pets", { state: { flash: { type: "success", message: "Pet saved" } } });
+    setSaving(true);
+    setApiError(null);
+    try {
+      await addPet(payload);
+      navigate("/pets", {
+        state: { flash: { type: "success", message: "Pet saved" } },
+      });
+    } catch (e: any) {
+      setApiError(e.message ?? "Failed to save pet");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function onReset() {
@@ -159,6 +182,7 @@ export default function AddPetPage() {
       notes: "",
     });
     setErrors({});
+    setApiError(null);
   }
 
   return (
@@ -173,6 +197,12 @@ export default function AddPetPage() {
           ← Back to Pets
         </Link>
       </div>
+
+      {apiError && (
+        <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {apiError}
+        </div>
+      )}
 
       {/* Card */}
       <div className="rounded-2xl border bg-white shadow-sm">
@@ -192,9 +222,7 @@ export default function AddPetPage() {
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                   placeholder="Buddy"
                 />
-                {errors.name && (
-                  <p className="mt-1 text-sm text-red-600">{errors.name}</p>
-                )}
+                {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
               </div>
 
               <div>
@@ -215,13 +243,11 @@ export default function AddPetPage() {
                     </option>
                   ))}
                 </select>
-                {errors.species && (
-                  <p className="mt-1 text-sm text-red-600">{errors.species}</p>
-                )}
+                {errors.species && <p className="mt-1 text-sm text-red-600">{errors.species}</p>}
               </div>
             </div>
 
-            {/* Breed (depends on species) / Color */}
+            {/* Breed / Color */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium">Breed</label>
@@ -239,9 +265,7 @@ export default function AddPetPage() {
                         </option>
                       ))}
                     </select>
-                    {errors.breed && (
-                      <p className="mt-1 text-sm text-red-600">{errors.breed}</p>
-                    )}
+                    {errors.breed && <p className="mt-1 text-sm text-red-600">{errors.breed}</p>}
                     {form.breed === "Other" && (
                       <>
                         <input
@@ -251,9 +275,7 @@ export default function AddPetPage() {
                           placeholder="Enter custom breed"
                         />
                         {errors.customBreed && (
-                          <p className="mt-1 text-sm text-red-600">
-                            {errors.customBreed}
-                          </p>
+                          <p className="mt-1 text-sm text-red-600">{errors.customBreed}</p>
                         )}
                       </>
                     )}
@@ -285,7 +307,7 @@ export default function AddPetPage() {
               </div>
             </div>
 
-            {/* Age (years/months) / Weight */}
+            {/* Age / Weight */}
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <label className="block text-sm font-medium">Age (Years)</label>
@@ -298,9 +320,7 @@ export default function AddPetPage() {
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                   placeholder="0"
                 />
-                {errors.ageYears && (
-                  <p className="mt-1 text-sm text-red-600">{errors.ageYears}</p>
-                )}
+                {errors.ageYears && <p className="mt-1 text-sm text-red-600">{errors.ageYears}</p>}
               </div>
 
               <div>
@@ -314,9 +334,7 @@ export default function AddPetPage() {
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                   placeholder="0–11"
                 />
-                {errors.ageMonths && (
-                  <p className="mt-1 text-sm text-red-600">{errors.ageMonths}</p>
-                )}
+                {errors.ageMonths && <p className="mt-1 text-sm text-red-600">{errors.ageMonths}</p>}
               </div>
 
               <div>
@@ -331,9 +349,7 @@ export default function AddPetPage() {
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                   placeholder="e.g., 4.5"
                 />
-                {errors.weightKg && (
-                  <p className="mt-1 text-sm text-red-600">{errors.weightKg}</p>
-                )}
+                {errors.weightKg && <p className="mt-1 text-sm text-red-600">{errors.weightKg}</p>}
               </div>
             </div>
 
@@ -380,9 +396,7 @@ export default function AddPetPage() {
                       placeholder="Enter owner name"
                     />
                     {errors.customOwner && (
-                      <p className="mt-1 text-sm text-red-600">
-                        {errors.customOwner}
-                      </p>
+                      <p className="mt-1 text-sm text-red-600">{errors.customOwner}</p>
                     )}
                   </>
                 )}
@@ -399,7 +413,7 @@ export default function AddPetPage() {
               </div>
             </div>
 
-            {/* Vaccinated / Neutered toggles */}
+            {/* Toggles */}
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="inline-flex items-center gap-3">
                 <input
@@ -439,15 +453,17 @@ export default function AddPetPage() {
             <button
               type="button"
               onClick={onReset}
-              className="rounded-xl border px-4 py-2"
+              disabled={saving}
+              className="rounded-xl border px-4 py-2 disabled:opacity-60"
             >
               Reset
             </button>
             <button
               type="submit"
-              className="rounded-xl bg-blue-600 px-5 py-2 text-white shadow-sm hover:bg-blue-700"
+              disabled={saving}
+              className="rounded-xl bg-blue-600 px-5 py-2 text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
             >
-              Save Pet
+              {saving ? "Saving…" : "Save Pet"}
             </button>
           </div>
         </form>

@@ -16,7 +16,9 @@ function yesNoBadge(v?: boolean) {
     <span
       className={
         "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium " +
-        (v ? "bg-green-50 text-green-700 border border-green-200" : "bg-gray-50 text-gray-700 border border-gray-200")
+        (v
+          ? "bg-green-50 text-green-700 border border-green-200"
+          : "bg-gray-50 text-gray-700 border border-gray-200")
       }
     >
       {v ? "Yes" : "No"}
@@ -102,7 +104,7 @@ export default function PetsPage() {
         </div>
       )}
 
-      {/* Search */}
+      {/* Search + content */}
       <div className="mt-5">
         <div className="rounded-2xl border bg-white shadow-sm">
           <div className="border-b p-4">
@@ -130,7 +132,10 @@ export default function PetsPage() {
               {/* MOBILE — cards */}
               <div className="md:hidden space-y-3">
                 {filtered.map((p) => (
-                  <div key={p.id} className="rounded-xl border bg-white p-4 shadow-sm">
+                  <div
+                    key={p.id}
+                    className="rounded-xl border bg-white p-4 shadow-sm"
+                  >
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="text-base font-semibold">{p.name}</div>
@@ -138,7 +143,9 @@ export default function PetsPage() {
                           <span className="mr-2 inline-flex items-center rounded-full border px-2 py-0.5 text-xs">
                             {p.species}
                           </span>
-                          {p.breed ? <span className="text-gray-500">• {p.breed}</span> : null}
+                          {p.breed ? (
+                            <span className="text-gray-500">• {p.breed}</span>
+                          ) : null}
                         </div>
                       </div>
                       {/* Actions: View / Edit / Delete */}
@@ -156,7 +163,11 @@ export default function PetsPage() {
                           Edit
                         </Link>
                         <button
-                          onClick={() => removePet(p.id)}
+                          onClick={() => {
+                            removePet(p.id).then(() =>
+                              setFlash({ type: "success", message: "Pet deleted" })
+                            );
+                          }}
                           className="rounded-lg px-3 py-1.5 text-red-600 hover:bg-red-50 text-sm"
                         >
                           Delete
@@ -174,7 +185,9 @@ export default function PetsPage() {
                       <div className="rounded-lg bg-gray-50 px-3 py-2">
                         <div className="text-gray-500">Weight</div>
                         <div className="font-medium">
-                          {typeof p.weightKg === "number" ? `${p.weightKg} kg` : "—"}
+                          {typeof p.weightKg === "number"
+                            ? `${p.weightKg} kg`
+                            : "—"}
                         </div>
                       </div>
                       <div className="rounded-lg bg-gray-50 px-3 py-2">
@@ -199,14 +212,17 @@ export default function PetsPage() {
                       <div className="mt-3 grid gap-2">
                         {p.microchipId ? (
                           <div className="text-xs text-gray-600">
-                            <span className="font-medium">Microchip:</span> {p.microchipId}
+                            <span className="font-medium">Microchip:</span>{" "}
+                            {p.microchipId}
                           </div>
                         ) : null}
                         {p.notes ? (
                           <div className="text-xs text-gray-600">
                             <span className="font-medium">Notes:</span>{" "}
                             <span title={p.notes}>
-                              {p.notes.length > 80 ? p.notes.slice(0, 80) + "…" : p.notes}
+                              {p.notes.length > 80
+                                ? p.notes.slice(0, 80) + "…"
+                                : p.notes}
                             </span>
                           </div>
                         ) : null}
@@ -244,13 +260,19 @@ export default function PetsPage() {
                               <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">
                                 {p.species}
                               </span>
-                              <span className="text-gray-700">{p.breed ?? "—"}</span>
+                              <span className="text-gray-700">
+                                {p.breed ?? "—"}
+                              </span>
                             </div>
                           </td>
                           <td className="px-4 py-3">{p.color ?? "—"}</td>
-                          <td className="px-4 py-3">{ageLabel(p.ageYears, p.ageMonths)}</td>
                           <td className="px-4 py-3">
-                            {typeof p.weightKg === "number" ? `${p.weightKg} kg` : "—"}
+                            {ageLabel(p.ageYears, p.ageMonths)}
+                          </td>
+                          <td className="px-4 py-3">
+                            {typeof p.weightKg === "number"
+                              ? `${p.weightKg} kg`
+                              : "—"}
                           </td>
                           <td className="px-4 py-3">{p.ownerName ?? "—"}</td>
                           <td className="px-4 py-3">{yesNoBadge(p.vaccinated)}</td>
@@ -259,13 +281,14 @@ export default function PetsPage() {
                           <td className="px-4 py-3">
                             {p.notes ? (
                               <span title={p.notes}>
-                                {p.notes.length > 40 ? p.notes.slice(0, 40) + "…" : p.notes}
+                                {p.notes.length > 40
+                                  ? p.notes.slice(0, 40) + "…"
+                                  : p.notes}
                               </span>
                             ) : (
                               "—"
                             )}
                           </td>
-                          {/* Actions: View / Edit / Delete */}
                           <td className="px-4 py-3">
                             <div className="flex justify-end gap-2">
                               <Link
@@ -281,7 +304,14 @@ export default function PetsPage() {
                                 Edit
                               </Link>
                               <button
-                                onClick={() => removePet(p.id)}
+                                onClick={() => {
+                                  removePet(p.id).then(() =>
+                                    setFlash({
+                                      type: "success",
+                                      message: "Pet deleted",
+                                    })
+                                  );
+                                }}
                                 className="rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
                               >
                                 Delete

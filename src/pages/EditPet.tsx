@@ -1,48 +1,96 @@
-import React, { useMemo, useState } from "react";
+// src/pages/EditPet.tsx
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { usePets } from "../context/PetsContext";
 
-type SpeciesKey = "Dog" | "Cat" | "Bird" | "Rabbit" | "Reptile" | "Other" | string;
+type SpeciesKey =
+  | "Dog"
+  | "Cat"
+  | "Bird"
+  | "Rabbit"
+  | "Reptile"
+  | "Other"
+  | string;
 
-const SPECIES: SpeciesKey[] = ["Dog", "Cat", "Bird", "Rabbit", "Reptile", "Other"];
+const SPECIES: SpeciesKey[] = [
+  "Dog",
+  "Cat",
+  "Bird",
+  "Rabbit",
+  "Reptile",
+  "Other",
+];
 
 const BREEDS: Record<string, string[]> = {
-  Dog: ["Labrador Retriever","German Shepherd","Golden Retriever","Bulldog","Poodle","Beagle","Other"],
-  Cat: ["Siamese","Persian","Maine Coon","Bengal","Sphynx","Ragdoll","Other"],
-  Bird: ["Parakeet","Cockatiel","Canary","Macaw","Finch","Other"],
-  Rabbit: ["Holland Lop","Netherland Dwarf","Rex","Lionhead","Other"],
-  Reptile: ["Bearded Dragon","Leopard Gecko","Corn Snake","Turtle","Other"],
+  Dog: [
+    "Labrador Retriever",
+    "German Shepherd",
+    "Golden Retriever",
+    "Bulldog",
+    "Poodle",
+    "Beagle",
+    "Other",
+  ],
+  Cat: ["Siamese", "Persian", "Maine Coon", "Bengal", "Sphynx", "Ragdoll", "Other"],
+  Bird: ["Parakeet", "Cockatiel", "Canary", "Macaw", "Finch", "Other"],
+  Rabbit: ["Holland Lop", "Netherland Dwarf", "Rex", "Lionhead", "Other"],
+  Reptile: ["Bearded Dragon", "Leopard Gecko", "Corn Snake", "Turtle", "Other"],
   Other: ["Other"],
 };
 
-const COLORS = ["Black","Brown","White","Golden","Gray","Cream","Mixed","Other"];
-const GENDERS: Array<"MALE" | "FEMALE" | "UNKNOWN"> = ["MALE","FEMALE","UNKNOWN"];
-const OWNERS = ["Alice","Bob","Charlie","Daisy","Other"];
-
-const MOCK_PET = {
-  id: "pet_001",
-  name: "Bruno",
-  species: "Dog" as SpeciesKey,
-  breed: "Labrador Retriever",
-  customBreed: "",
-  gender: "MALE" as "MALE" | "FEMALE" | "UNKNOWN",
-  color: "Brown",
-  ageYears: "3",
-  ageMonths: "2",
-  weightKg: "18.5",
-  ownerName: "Alice",
-  customOwner: "",
-  microchipId: "9851-0034-221A",
-  vaccinated: true,
-  neutered: true,
-  notes: "Friendly, good with kids. Mild allergy to chicken.",
-};
+const COLORS = ["Black", "Brown", "White", "Golden", "Gray", "Cream", "Mixed", "Other"];
+const GENDERS: Array<"MALE" | "FEMALE" | "UNKNOWN"> = ["MALE", "FEMALE", "UNKNOWN"];
+const OWNERS = ["Alice", "Bob", "Charlie", "Daisy", "Other"];
 
 export default function EditPetPage() {
+  const { id } = useParams();
   const navigate = useNavigate();
-  const { id } = useParams(); // reserved for future wiring (no functionality now)
+  const { pets, updatePet } = usePets();
 
-  const [form, setForm] = useState({ ...MOCK_PET });
-  const [errors, setErrors] = useState<{ [k: string]: string }>({});
+  const pet = pets.find((p) => p.id === id);
+
+  const [form, setForm] = useState({
+    name: "",
+    species: "" as SpeciesKey | "",
+    breed: "",
+    customBreed: "",
+    gender: "UNKNOWN" as "MALE" | "FEMALE" | "UNKNOWN",
+    color: "",
+    ageYears: "",
+    ageMonths: "",
+    weightKg: "",
+    ownerName: "",
+    customOwner: "",
+    microchipId: "",
+    vaccinated: false,
+    neutered: false,
+    notes: "",
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pet) {
+      setForm({
+        name: pet.name || "",
+        species: (pet.species as SpeciesKey) || "",
+        breed: pet.breed || "",
+        customBreed: "",
+        gender: (pet.gender as "MALE" | "FEMALE" | "UNKNOWN") || "UNKNOWN",
+        color: pet.color || "",
+        ageYears: pet.ageYears?.toString() || "",
+        ageMonths: pet.ageMonths?.toString() || "",
+        weightKg: pet.weightKg?.toString() || "",
+        ownerName: pet.ownerName || "",
+        customOwner: "",
+        microchipId: pet.microchipId || "",
+        vaccinated: pet.vaccinated || false,
+        neutered: pet.neutered || false,
+        notes: pet.notes || "",
+      });
+    }
+  }, [pet]);
 
   const speciesBreeds = useMemo<string[]>(() => {
     if (!form.species || !BREEDS[form.species]) return [];
@@ -77,6 +125,7 @@ export default function EditPetPage() {
       const m = Number(form.ageMonths);
       if (!Number.isFinite(m) || m < 0 || m > 11) e.ageMonths = "0–11 months.";
     }
+
     if (form.weightKg !== "") {
       const w = Number(form.weightKg);
       if (!Number.isFinite(w) || w < 0 || w > 120) e.weightKg = "0–120 kg.";
@@ -86,22 +135,48 @@ export default function EditPetPage() {
     return Object.keys(e).length === 0;
   }
 
-  function onSubmit(ev: React.FormEvent) {
+  async function onSubmit(ev: React.FormEvent) {
     ev.preventDefault();
-    if (!validate()) return;
+    if (!validate() || !id) return;
 
-    // UI-only: no update logic here
-    // You can see what would be sent later:
-    // eslint-disable-next-line no-console
-    console.log("EditPetPage submit (UI-only):", { id, ...form });
+    const finalBreed =
+      form.breed === "Other" ? form.customBreed.trim() : form.breed.trim() || undefined;
+    const finalOwner =
+      form.ownerName === "Other"
+        ? form.customOwner.trim()
+        : form.ownerName.trim() || undefined;
 
-    navigate("/pets", { state: { flash: { type: "success", message: "Pet updated" } } });
+    const payload = {
+      name: form.name.trim(),
+      species: form.species || "Other",
+      breed: finalBreed ?? null,
+      gender: form.gender,
+      color: form.color || undefined,
+      ageYears: form.ageYears === "" ? undefined : Number(form.ageYears),
+      ageMonths: form.ageMonths === "" ? undefined : Number(form.ageMonths),
+      weightKg: form.weightKg === "" ? undefined : Number(form.weightKg),
+      ownerName: finalOwner,
+      microchipId: form.microchipId || undefined,
+      vaccinated: form.vaccinated,
+      neutered: form.neutered,
+      notes: form.notes.trim() || undefined,
+    };
+
+    setSaving(true);
+    setApiError(null);
+    try {
+      await updatePet(id, payload);
+      navigate("/pets", {
+        state: { flash: { type: "success", message: "Pet updated" } },
+      });
+    } catch (e: any) {
+      setApiError(e.message ?? "Failed to update pet");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function onReset() {
-    setForm({ ...MOCK_PET });
-    setErrors({});
-  }
+  if (!pet) return <p className="p-6">Pet not found.</p>;
 
   return (
     <div className="p-6">
@@ -109,9 +184,18 @@ export default function EditPetPage() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Edit Pet</h1>
+          <p className="text-sm text-gray-500">Update pet details.</p>
         </div>
-        <Link to="/pets" className="text-sm underline">← Back to Pets</Link>
+        <Link to="/pets" className="text-sm underline">
+          ← Back to Pets
+        </Link>
       </div>
+
+      {apiError && (
+        <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {apiError}
+        </div>
+      )}
 
       {/* Card */}
       <div className="rounded-2xl border bg-white shadow-sm">
@@ -147,7 +231,9 @@ export default function EditPetPage() {
                 >
                   <option value="">Select species…</option>
                   {SPECIES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
                   ))}
                 </select>
                 {errors.species && <p className="mt-1 text-sm text-red-600">{errors.species}</p>}
@@ -167,7 +253,9 @@ export default function EditPetPage() {
                     >
                       <option value="">Select breed…</option>
                       {speciesBreeds.map((b) => (
-                        <option key={b} value={b}>{b}</option>
+                        <option key={b} value={b}>
+                          {b}
+                        </option>
                       ))}
                     </select>
                     {errors.breed && <p className="mt-1 text-sm text-red-600">{errors.breed}</p>}
@@ -179,7 +267,9 @@ export default function EditPetPage() {
                           className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                           placeholder="Enter custom breed"
                         />
-                        {errors.customBreed && <p className="mt-1 text-sm text-red-600">{errors.customBreed}</p>}
+                        {errors.customBreed && (
+                          <p className="mt-1 text-sm text-red-600">{errors.customBreed}</p>
+                        )}
                       </>
                     )}
                   </>
@@ -201,7 +291,11 @@ export default function EditPetPage() {
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                 >
                   <option value="">Select color…</option>
-                  {COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {COLORS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -213,7 +307,9 @@ export default function EditPetPage() {
                 <input
                   value={form.ageYears}
                   onChange={(e) => set("ageYears", e.target.value)}
-                  type="number" min={0} max={40}
+                  type="number"
+                  min={0}
+                  max={40}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                   placeholder="0"
                 />
@@ -225,7 +321,9 @@ export default function EditPetPage() {
                 <input
                   value={form.ageMonths}
                   onChange={(e) => set("ageMonths", e.target.value)}
-                  type="number" min={0} max={11}
+                  type="number"
+                  min={0}
+                  max={11}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                   placeholder="0–11"
                 />
@@ -237,7 +335,10 @@ export default function EditPetPage() {
                 <input
                   value={form.weightKg}
                   onChange={(e) => set("weightKg", e.target.value)}
-                  type="number" step="0.1" min={0} max={120}
+                  type="number"
+                  step="0.1"
+                  min={0}
+                  max={120}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                   placeholder="e.g., 4.5"
                 />
@@ -251,11 +352,13 @@ export default function EditPetPage() {
                 <label className="block text-sm font-medium">Gender</label>
                 <select
                   value={form.gender}
-                  onChange={(e) => set("gender", e.target.value as any)}
+                  onChange={(e) => set("gender", e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                 >
                   {GENDERS.map((g) => (
-                    <option key={g} value={g}>{g[0] + g.slice(1).toLowerCase()}</option>
+                    <option key={g} value={g}>
+                      {g[0] + g.slice(1).toLowerCase()}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -271,7 +374,9 @@ export default function EditPetPage() {
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                 >
                   <option value="">Select owner…</option>
-                  {OWNERS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  {OWNERS.map((o) => (
+                    <option key={o} value={o}>{o}</option>
+                  ))}
                 </select>
                 {form.ownerName === "Other" && (
                   <>
@@ -281,7 +386,9 @@ export default function EditPetPage() {
                       className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                       placeholder="Enter owner name"
                     />
-                    {errors.customOwner && <p className="mt-1 text-sm text-red-600">{errors.customOwner}</p>}
+                    {errors.customOwner && (
+                      <p className="mt-1 text-sm text-red-600">{errors.customOwner}</p>
+                    )}
                   </>
                 )}
               </div>
@@ -297,7 +404,7 @@ export default function EditPetPage() {
               </div>
             </div>
 
-            {/* Vaccinated / Neutered toggles */}
+            {/* Toggles */}
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="inline-flex items-center gap-3">
                 <input
@@ -334,11 +441,20 @@ export default function EditPetPage() {
           </div>
 
           <div className="flex flex-col gap-3 border-t p-4 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onReset} className="rounded-xl border px-4 py-2">
-              Reset
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => navigate("/pets")}
+              className="rounded-xl border px-4 py-2 disabled:opacity-60"
+            >
+              Cancel
             </button>
-            <button type="submit" className="rounded-xl bg-blue-600 px-5 py-2 text-white shadow-sm hover:bg-blue-700">
-              Update Pet
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-xl bg-blue-600 px-5 py-2 text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Update Pet"}
             </button>
           </div>
         </form>
