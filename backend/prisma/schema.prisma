@@ -41,24 +41,31 @@ model User {
 }
 
 model Pet {
-  id      String @id @default(cuid())
-  ownerId String
-  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  owner       User     @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  name        String
+  species     String?
+  breed       String?
+  gender      String?
+  color       String?
+  dob         DateTime?
+  ageYears    Int?
+  ageMonths   Int?
+  weightKg    Float?
+  microchipId String?
+  vaccinated  Boolean? @default(false)
+  neutered    Boolean? @default(false)
+  notes       String?
 
-  name     String
-  species  String?
-  breed    String?
-  dob      DateTime?
-  archived Boolean   @default(false)
+  archived   Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
+  // Add missing back-relations:
   appointments Appointment[]
   vaccinations Vaccination[]
   medications  Medication[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([ownerId])
 }
 
 model Vet {

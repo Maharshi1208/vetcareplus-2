@@ -7,36 +7,65 @@ import Input from "../components/ui/Input";
 import PasswordInput from "../components/ui/PasswordInput";
 import Button from "../components/ui/Button";
 
-const schema = z.object({
-  name: z.string().min(2, "Enter your full name"),
-  email: z.string().email("Enter a valid email"),
-  password: z.string().min(6, "Minimum 6 characters"),
-  confirm: z.string().min(6, "Minimum 6 characters"),
-  agree: z.literal(true, { errorMap: () => ({ message: "Please accept terms" }) }),
-}).refine((data) => data.password === data.confirm, {
-  message: "Passwords do not match",
-  path: ["confirm"],
-});
+const schema = z
+  .object({
+    name: z.string().min(2, "Enter your full name"),
+    email: z.string().email("Enter a valid email"),
+    password: z.string().min(6, "Minimum 6 characters"),
+    confirm: z.string().min(6, "Minimum 6 characters"),
+    agree: z.literal(true, {
+      errorMap: () => ({ message: "Please accept terms" }),
+    }),
+  })
+  .refine((data) => data.password === data.confirm, {
+    message: "Passwords do not match",
+    path: ["confirm"],
+  });
 
 type FormData = z.infer<typeof schema>;
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register, handleSubmit, formState: { errors, isSubmitting } } =
-    useForm<FormData>({ resolver: zodResolver(schema), mode: "onTouched" });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>({ resolver: zodResolver(schema), mode: "onTouched" });
 
-  const onSubmit = async (_data: FormData) => {
-    // frontend-only: pretend success then go to Login
-    await new Promise((r) => setTimeout(r, 700));
-    navigate("/login");
+  const onSubmit = async (data: FormData) => {
+    try {
+      const res = await fetch("http://localhost:4000/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+          name: data.name,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Registration failed");
+      }
+
+      // Success → go to login
+      navigate("/login");
+    } catch (err: any) {
+      alert(err.message);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-500 to-emerald-500 grid place-items-center px-4">
       <div className="w-full max-w-md rounded-2xl border border-white/40 bg-white/85 backdrop-blur-sm shadow-soft p-6">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-2 h-10 w-10 rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 grid place-items-center text-white font-bold">V</div>
-          <h1 className="text-2xl font-semibold text-gray-900">Create your account</h1>
+          <div className="mx-auto mb-2 h-10 w-10 rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 grid place-items-center text-white font-bold">
+            V
+          </div>
+          <h1 className="text-2xl font-semibold text-gray-900">
+            Create your account
+          </h1>
           <p className="text-gray-600 text-sm">Start using VetCare+</p>
         </div>
 
@@ -68,9 +97,14 @@ export default function Register() {
           />
           <label className="flex items-start gap-2 text-sm text-gray-700">
             <input type="checkbox" className="mt-1" {...register("agree")} />
-            <span>I agree to the <span className="underline">Terms</span> and <span className="underline">Privacy</span>.</span>
+            <span>
+              I agree to the <span className="underline">Terms</span> and{" "}
+              <span className="underline">Privacy</span>.
+            </span>
           </label>
-          {errors.agree && <p className="text-xs text-red-600">{errors.agree.message}</p>}
+          {errors.agree && (
+            <p className="text-xs text-red-600">{errors.agree.message}</p>
+          )}
 
           <div className="pt-2">
             <Button type="submit" loading={isSubmitting} full>
@@ -81,7 +115,10 @@ export default function Register() {
 
         <p className="mt-6 text-center text-sm text-gray-700">
           Already have an account?{" "}
-          <Link to="/login" className="font-medium text-sky-700 hover:text-sky-900">
+          <Link
+            to="/login"
+            className="font-medium text-sky-700 hover:text-sky-900"
+          >
             Sign in
           </Link>
         </p>
