@@ -28,6 +28,8 @@ type PetsContextValue = {
   pets: Pet[];
   loading: boolean;
   error: string | null;
+  addPet: (data: Partial<Pet>) => Promise<Pet | null>;
+  updatePet: (id: string, data: Partial<Pet>) => Promise<Pet | null>;
   removePet: (id: string) => Promise<void>;
   reloadPets: (signal?: AbortSignal) => Promise<void>;
 };
@@ -82,6 +84,50 @@ export function PetsProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const addPet = useCallback(async (data: Partial<Pet>) => {
+    try {
+      const res = await fetch(`${API_BASE}/pets`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(data),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Failed to add pet");
+      const newPet = body.pet ?? body;
+      setPets((old) => [newPet, ...old]);
+      return newPet;
+    } catch (err) {
+      console.error("addPet error:", err);
+      return null;
+    }
+  }, []);
+
+  const updatePet = useCallback(async (id: string, data: Partial<Pet>) => {
+    try {
+      const res = await fetch(`${API_BASE}/pets/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(data),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Failed to update pet");
+      const updatedPet = body.pet ?? body;
+      setPets((old) =>
+        old.map((p) => (p.id === id ? { ...p, ...updatedPet } : p))
+      );
+      return updatedPet;
+    } catch (err) {
+      console.error("updatePet error:", err);
+      return null;
+    }
+  }, []);
+
   const removePet = useCallback(async (id: string) => {
     try {
       const res = await fetch(`${API_BASE}/pets/${id}`, {
@@ -105,7 +151,9 @@ export function PetsProvider({ children }: { children: React.ReactNode }) {
   }, [reloadPets]);
 
   return (
-    <PetsContext.Provider value={{ pets, loading, error, removePet, reloadPets }}>
+    <PetsContext.Provider
+      value={{ pets, loading, error, addPet, updatePet, removePet, reloadPets }}
+    >
       {children}
     </PetsContext.Provider>
   );
