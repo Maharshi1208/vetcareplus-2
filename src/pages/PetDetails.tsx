@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 const API_BASE = "http://localhost:4000";
@@ -35,42 +35,25 @@ async function http<T>(url: string): Promise<T> {
   return data as T;
 }
 
-// Normalize backend → frontend fields
 function normalizePet(raw: any) {
   return {
-    id: String(raw.id ?? raw.ID ?? raw._id ?? ""),
-    name: raw.name ?? raw.Name ?? "",
-    species: raw.species ?? raw.Species ?? "",
-    breed: raw.breed ?? raw.Breed ?? "",
-    color: raw.color ?? raw.Color ?? "",
-    gender: raw.gender ?? raw.Gender ?? "",
-    dob: raw.dob ?? raw.DOB ?? raw.dateOfBirth ?? null,
-    ageYears: raw.ageYears ?? raw.age_years ?? null,
-    ageMonths: raw.ageMonths ?? raw.age_months ?? null,
-    weightKg: raw.weightKg ?? raw.weight_kg ?? null,
-    microchipId: raw.microchipId ?? raw.microchip_id ?? null,
-    vaccinated: raw.vaccinated ?? raw.isVaccinated ?? null,
-    neutered: raw.neutered ?? raw.isNeutered ?? null,
-    notes: raw.notes ?? raw.Notes ?? "",
-    createdAt: raw.createdAt ?? raw.created_at ?? null,
-    updatedAt: raw.updatedAt ?? raw.updated_at ?? null,
+    id: String(raw.id ?? ""),
+    name: raw.name ?? "",
+    species: raw.species ?? "",
+    breed: raw.breed ?? "",
+    color: raw.color ?? "",
+    gender: raw.gender ?? "",
+    ageYears: raw.ageYears ?? null,
+    ageMonths: raw.ageMonths ?? null,
+    weightKg: raw.weightKg ?? null,
+    ownerName: raw.ownerName ?? "",
+    microchipId: raw.microchipId ?? null,
+    vaccinated: raw.vaccinated ?? false,
+    neutered: raw.neutered ?? false,
+    notes: raw.notes ?? "",
+    createdAt: raw.createdAt ?? null,
+    updatedAt: raw.updatedAt ?? null,
   };
-}
-
-function computeAge(dob?: string | null) {
-  if (!dob) return null;
-  const d = new Date(dob);
-  if (isNaN(d.getTime())) return null;
-  const now = new Date();
-  let years = now.getFullYear() - d.getFullYear();
-  let months = now.getMonth() - d.getMonth();
-  if (now.getDate() < d.getDate()) months -= 1;
-  if (months < 0) {
-    years -= 1;
-    months += 12;
-  }
-  if (years < 0) return null;
-  return { years, months };
 }
 
 export default function PetDetailsPage() {
@@ -100,8 +83,6 @@ export default function PetDetailsPage() {
     };
   }, [id]);
 
-  const age = useMemo(() => computeAge(pet?.dob ?? null), [pet?.dob]);
-
   if (loading) return <div className="p-6">Loading…</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
   if (!pet) return <div className="p-6">No pet found.</div>;
@@ -112,7 +93,7 @@ export default function PetDetailsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{pet.name}</h1>
-          <p className="text-sm text-gray-500">Pet profile</p>
+          <p className="text-sm text-gray-500">{pet.species} profile</p>
         </div>
         <div className="flex gap-2">
           <Link
@@ -138,19 +119,11 @@ export default function PetDetailsPage() {
           <Field label="Breed" value={pet.breed} />
           <Field label="Color" value={pet.color} />
           <Field label="Gender" value={pet.gender} />
-          <Field
-            label="DOB"
-            value={pet.dob ? new Date(pet.dob).toLocaleDateString() : "—"}
-          />
-          <Field
-            label="Age"
-            value={age ? `${age.years}y ${age.months}m` : "—"}
-          />
-          <Field
-            label="Weight"
-            value={pet.weightKg ? `${pet.weightKg} kg` : "—"}
-          />
-          <Field label="Microchip" value={pet.microchipId} />
+          <Field label="Age (Years)" value={pet.ageYears != null ? String(pet.ageYears) : "—"} />
+          <Field label="Age (Months)" value={pet.ageMonths != null ? String(pet.ageMonths) : "—"} />
+          <Field label="Weight (kg)" value={pet.weightKg != null ? `${pet.weightKg} kg` : "—"} />
+          <Field label="Owner" value={pet.ownerName} />
+          <Field label="Microchip ID" value={pet.microchipId} />
           <Field label="Vaccinated" value={pet.vaccinated ? "Yes" : "No"} />
           <Field label="Neutered" value={pet.neutered ? "Yes" : "No"} />
           <Field label="Notes" value={pet.notes} />
@@ -158,7 +131,7 @@ export default function PetDetailsPage() {
       </Card>
 
       {/* Metadata */}
-      <Card title="Metadata">
+      <Card title="System Info">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             label="Created At"
