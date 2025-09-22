@@ -179,3 +179,24 @@ model ResetToken {
   @@index([userId])
   @@index([token])
 }
+
+enum AuditAction {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  PASSWORD_RESET_REQUEST
+  PASSWORD_RESET_COMPLETE
+  USER_SUSPEND
+  USER_UNSUSPEND
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String?     @db.VarChar(36)
+  action     AuditAction
+  meta       Json?
+  ip         String?     @db.VarChar(64)
+  userAgent  String?     @db.VarChar(512)
+  createdAt  DateTime    @default(now())
+
+  @@index([userId, createdAt])
+}
