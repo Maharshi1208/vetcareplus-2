@@ -20,3 +20,6 @@ backend/.env
 .DS_Store
 infra/*.csv
 *.bak
+pnpm-lock.yaml
+backend/pnpm-lock.yaml
+backend/pnpm-workspace.yaml
