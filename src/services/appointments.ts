@@ -119,3 +119,12 @@ export function torontoISO(dateYYYYMMDD: string, timeHHMM: string): string {
   const offMM = String(offAbs % 60).padStart(2, "0");
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${sign}${offHH}:${offMM}`;
 }
+
+// helpers (thin wrappers)
+export async function cancelAppointment(id: string) {
+  return updateAppointment(id, { status: "CANCELLED" });
+}
+
+export async function restoreAppointment(id: string) {
+  return updateAppointment(id, { status: "BOOKED" });
+}
