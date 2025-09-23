@@ -1,57 +1,23 @@
 // src/pages/Appointments.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { listAppointments, type Appointment } from "../services/appointments";
 
 type FlashState = { type: "success" | "error" | "info"; message: string };
 
+// Keep your UI status labels
 type ApptStatus = "Booked" | "Completed" | "Cancelled";
 type Appt = {
   id: string;
-  date: string; // YYYY-MM-DD
-  start: string; // HH:mm
-  end: string;   // HH:mm
+  date: string;  // YYYY-MM-DD (Toronto)
+  start: string; // HH:mm (Toronto)
+  end: string;   // HH:mm (Toronto)
   pet: string;
-  owner: string;
+  owner: string; // we only have ownerId from backend; showing "—" for now
   vet: string;
   reason: string;
   status: ApptStatus;
 };
-
-const MOCK_APPTS: Appt[] = [
-  {
-    id: "a1",
-    date: "2025-09-17",
-    start: "09:00",
-    end: "09:30",
-    pet: "Buddy",
-    owner: "Alice Johnson",
-    vet: "Dr. Anna Smith",
-    reason: "Checkup",
-    status: "Booked",
-  },
-  {
-    id: "a2",
-    date: "2025-09-17",
-    start: "10:00",
-    end: "10:45",
-    pet: "Misty",
-    owner: "Alice Johnson",
-    vet: "Dr. Brian Lee",
-    reason: "Skin rash",
-    status: "Completed",
-  },
-  {
-    id: "a3",
-    date: "2025-09-18",
-    start: "11:30",
-    end: "12:00",
-    pet: "Kiwi",
-    owner: "Bob Patel",
-    vet: "Dr. Carla Gomez",
-    reason: "Beak trim",
-    status: "Cancelled",
-  },
-];
 
 function statusBadge(s: ApptStatus) {
   const map: Record<ApptStatus, string> = {
@@ -64,6 +30,35 @@ function statusBadge(s: ApptStatus) {
       {s}
     </span>
   );
+}
+
+// ---- helpers to format to your UI shape ----
+function toTorontoDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-CA", { timeZone: "America/Toronto" }); // e.g., 2025-09-29
+}
+function toTorontoTime(iso: string): string {
+  const d = new Date(iso);
+  // 24-hour HH:mm to match your UI (e.g., 09:00)
+  return d.toLocaleTimeString("en-GB", {
+    timeZone: "America/Toronto",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+function mapStatus(s: Appointment["status"]): ApptStatus {
+  switch (s) {
+    case "BOOKED":
+      return "Booked";
+    case "COMPLETED":
+      return "Completed";
+    case "CANCELLED":
+    case "NO_SHOW": // show as Cancelled in your UI
+      return "Cancelled";
+    default:
+      return "Booked";
+  }
 }
 
 export default function AppointmentsPage() {
@@ -80,23 +75,59 @@ export default function AppointmentsPage() {
     }
   }, [location, navigate]);
 
-  // search + date filter (UI-only)
+  // filters
   const [q, setQ] = useState("");
   const [picked, setPicked] = useState("");
 
+  // live data
+  const [rows, setRows] = useState<Appt[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // fetch on mount
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await listAppointments({ page: 1, pageSize: 50 });
+        const mapped: Appt[] =
+          (data.appointments || []).map((a) => ({
+            id: a.id,
+            date: toTorontoDate(a.start),
+            start: toTorontoTime(a.start),
+            end: toTorontoTime(a.end),
+            pet: a.pet?.name ?? "—",
+            owner: a.pet?.ownerId ? String(a.pet.ownerId) : "—", // backend provides ownerId only
+            vet: a.vet?.name ?? "—",
+            reason: a.reason ?? "—",
+            status: mapStatus(a.status),
+          })) ?? [];
+        if (mounted) setRows(mapped);
+      } catch (e) {
+        console.error(e);
+        if (mounted) setError("Failed to load appointments. Make sure you are logged in as admin.");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return MOCK_APPTS.filter((a) => {
+    return rows.filter((a) => {
       const matchesQuery =
         !s ||
-        [a.pet, a.owner, a.vet, a.reason, a.status]
-          .join(" ")
-          .toLowerCase()
-          .includes(s);
+        [a.pet, a.owner, a.vet, a.reason, a.status].join(" ").toLowerCase().includes(s);
       const matchesDate = !picked || a.date === picked;
       return matchesQuery && matchesDate;
     });
-  }, [q, picked]);
+  }, [rows, q, picked]);
 
   return (
     <div className="p-6">
@@ -104,23 +135,17 @@ export default function AppointmentsPage() {
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Appointments</h1>
+          {/* keep your subtitle to avoid design/content changes */}
           <p className="text-sm text-gray-500">Calendar of bookings (UI-only list).</p>
         </div>
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center rounded-full border px-3 py-1 text-sm text-gray-700">
             Total: <span className="ml-1 font-semibold">{filtered.length}</span>
           </span>
-          {/* NEW: Calendar button (added) */}
-          <Link
-            to="/appointments/calendar"
-            className="rounded-xl border px-4 py-2 hover:bg-gray-50"
-          >
+          <Link to="/appointments/calendar" className="rounded-xl border px-4 py-2 hover:bg-gray-50">
             Calendar
           </Link>
-          <Link
-            to="/appointments/add"
-            className="rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-          >
+          <Link to="/appointments/add" className="rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
             New Appointment
           </Link>
         </div>
@@ -139,6 +164,13 @@ export default function AppointmentsPage() {
           >
             Dismiss
           </button>
+        </div>
+      )}
+
+      {/* Error banner */}
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
         </div>
       )}
 
@@ -177,43 +209,53 @@ export default function AppointmentsPage() {
               </tr>
             </thead>
             <tbody className="divide-y text-sm">
-              {filtered.map((a) => (
-                <tr key={a.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{a.date}</td>
-                  <td className="px-4 py-3">
-                    {a.start}–{a.end}
-                  </td>
-                  <td className="px-4 py-3">{a.pet}</td>
-                  <td className="px-4 py-3">{a.owner}</td>
-                  <td className="px-4 py-3">{a.vet}</td>
-                  <td className="px-4 py-3">{a.reason}</td>
-                  <td className="px-4 py-3">{statusBadge(a.status)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      <Link
-                        to={`/appointments/${a.id}`}
-                        className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
-                      >
-                        View
-                      </Link>
-                      <Link
-                        to={`/appointments/${a.id}/edit`}
-                        className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
-                      >
-                        Edit
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => window.alert("UI-only: cancel flow")}
-                        className="rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+              {loading && (
+                <tr>
+                  <td className="px-4 py-10 text-center text-sm text-gray-600" colSpan={8}>
+                    Loading appointments…
                   </td>
                 </tr>
-              ))}
-              {filtered.length === 0 && (
+              )}
+
+              {!loading &&
+                filtered.map((a) => (
+                  <tr key={a.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">{a.date}</td>
+                    <td className="px-4 py-3">
+                      {a.start}–{a.end}
+                    </td>
+                    <td className="px-4 py-3">{a.pet}</td>
+                    <td className="px-4 py-3">{a.owner}</td>
+                    <td className="px-4 py-3">{a.vet}</td>
+                    <td className="px-4 py-3">{a.reason}</td>
+                    <td className="px-4 py-3">{statusBadge(a.status)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          to={`/appointments/${a.id}`}
+                          className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
+                        >
+                          View
+                        </Link>
+                        <Link
+                          to={`/appointments/${a.id}/edit`}
+                          className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+                        >
+                          Edit
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => window.alert("UI-only: cancel flow")}
+                          className="rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+              {!loading && filtered.length === 0 && (
                 <tr>
                   <td className="px-4 py-10 text-center text-sm text-gray-600" colSpan={8}>
                     No appointments match your filters.
