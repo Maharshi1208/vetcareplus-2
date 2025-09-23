@@ -1,0 +1,12 @@
+{
+  "name": "vetcareplus-qa-playwright",
+  "private": true,
+  "version": "0.1.0",
+  "devDependencies": {
+    "@playwright/test": "^1.48.2"
+  },
+  "scripts": {
+    "test": "playwright test --reporter=html",
+    "report": "playwright show-report"
+  }
+}
