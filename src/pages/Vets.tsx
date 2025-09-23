@@ -1,22 +1,17 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { listVets, deleteVet } from "../services/vets";
 
 type Vet = {
   id: string;
   name: string;
-  specialty?: string;
-  email?: string;
-  phone?: string;
+  specialty?: string | null;
+  email?: string | null;
+  phone?: string | null;
   active: boolean;
 };
 
 type FlashState = { type: "success" | "error" | "info"; message: string };
-
-const MOCK_VETS: Vet[] = [
-  { id: "v1", name: "Dr. Anna Smith", specialty: "Surgery", email: "anna@vetcare.local", phone: "555-1001", active: true },
-  { id: "v2", name: "Dr. Brian Lee", specialty: "Dermatology", email: "brian@vetcare.local", phone: "555-1002", active: true },
-  { id: "v3", name: "Dr. Carla Gomez", specialty: "Dentistry", email: "carla@vetcare.local", phone: "555-1003", active: false },
-];
 
 function statusBadge(ok: boolean) {
   return (
@@ -34,11 +29,12 @@ function statusBadge(ok: boolean) {
 }
 
 export default function VetsPage() {
-  // (UI-only) local list seeded from mock
-  const [vets] = useState<Vet[]>(MOCK_VETS);
+  const [vets, setVets] = useState<Vet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
 
-  // --- Flash banner (one-time) ---
+  // Flash banner (one-time)
   const location = useLocation();
   const navigate = useNavigate();
   const [flash, setFlash] = useState<FlashState | null>(null);
@@ -51,6 +47,34 @@ export default function VetsPage() {
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location, navigate]);
+
+  // Centralized reload
+  const reload = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    listVets()
+      .then((items) => {
+        const normalized: Vet[] = items.map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          specialty: v.specialty ?? null,
+          email: v.email ?? null,
+          phone: v.phone ?? null,
+          active: Boolean(v.active),
+        }));
+        setVets(normalized);
+      })
+      .catch((e) => {
+        console.error(e);
+        setError("Failed to load vets. Make sure you are logged in as admin.");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -107,6 +131,13 @@ export default function VetsPage() {
         </div>
       )}
 
+      {/* Error banner */}
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {/* Search */}
       <div className="rounded-2xl border bg-white shadow-sm">
         <div className="border-b p-4">
@@ -133,42 +164,63 @@ export default function VetsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y text-sm">
-                {filtered.map((v) => (
-                  <tr key={v.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{v.name}</td>
-                    <td className="px-4 py-3">{v.specialty ?? "—"}</td>
-                    <td className="px-4 py-3">{v.email ?? "—"}</td>
-                    <td className="px-4 py-3">{v.phone ?? "—"}</td>
-                    <td className="px-4 py-3">{statusBadge(v.active)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        <Link
-                          to={`/vets/${v.id}`}
-                          className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
-                        >
-                          View
-                        </Link>
-                        <Link
-                          to={`/vets/${v.id}/edit`}
-                          className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
-                        >
-                          Edit
-                        </Link>
-                        <button
-                          onClick={() => {
-                            // UI-only placeholder
-                            // eslint-disable-next-line no-console
-                            console.log("Delete vet (UI-only):", v.id);
-                          }}
-                          className="rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                {/* Loading row */}
+                {loading && (
+                  <tr>
+                    <td className="px-4 py-6 text-center text-sm text-gray-600" colSpan={6}>
+                      Loading vets…
                     </td>
                   </tr>
-                ))}
-                {filtered.length === 0 && (
+                )}
+
+                {!loading &&
+                  filtered.map((v) => (
+                    <tr key={v.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium">{v.name}</td>
+                      <td className="px-4 py-3">{v.specialty ?? "—"}</td>
+                      <td className="px-4 py-3">{v.email ?? "—"}</td>
+                      <td className="px-4 py-3">{v.phone ?? "—"}</td>
+                      <td className="px-4 py-3">{statusBadge(v.active)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-2">
+                          <Link
+                            to={`/vets/${v.id}`}
+                            className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
+                          >
+                            View
+                          </Link>
+                          <Link
+                            to={`/vets/${v.id}/edit`}
+                            className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+                          >
+                            Edit
+                          </Link>
+                          <button
+                            onClick={async () => {
+                              if (
+                                !window.confirm(
+                                  "Are you sure you want to delete this vet? This will make them inactive."
+                                )
+                              )
+                                return;
+                              try {
+                                await deleteVet(v.id); // backend soft-deletes (active=false)
+                                reload();               // refresh table
+                              } catch (e) {
+                                console.error(e);
+                                alert("Failed to delete vet. Make sure you are logged in as admin.");
+                              }
+                            }}
+                            className="rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+
+                {!loading && filtered.length === 0 && (
                   <tr>
                     <td className="px-4 py-6 text-center text-sm text-gray-600" colSpan={6}>
                       No vets found.
