@@ -78,7 +78,7 @@ export default function App() {
 	{/* Appointments Module*/}
         <Route path="/appointments" element={<AppShell><AppointmentsPage /></AppShell>} />
 	<Route path="/appointments/:id" element={<AppShell><AppointmentDetailsPage /></AppShell>} />
-
+        <Route path="/appointments/:id" element={<AppointmentDetailsPage />} />
 
 	{/* Invoices Module */}
 	<Route path="/invoices" element={<AppShell><InvoicesPage /></AppShell>} />
