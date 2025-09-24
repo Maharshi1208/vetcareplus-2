@@ -38,14 +38,18 @@ import AddVaccine from "./pages/AddVaccine";
 import ViewVaccine from "./pages/ViewVaccine";
 import EditVaccine from "./pages/EditVaccine";
 
-// simple stub pages (we'll design later)
+// NEW: RBAC helpers
+import ProtectedRoute from "./components/ProtectedRoute";
+import RequireRole from "./components/RequireRole";
+import Forbidden from "./pages/Forbidden";
+
+// simple stub pages (kept as-is)
 const Page = ({ title }: { title: string }) => (
   <div className="space-y-2">
     <h1 className="text-2xl font-bold">{title}</h1>
     <p className="text-gray-600">Frontend-only stub page. We will design this next.</p>
   </div>
 );
-
 function Vets() { return <Page title="Vets" />; }
 function Owners() { return <Page title="Owners" />; }
 function Appointments() { return <Page title="Appointments" />; }
@@ -62,65 +66,139 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* App routes (with AppShell) */}
-        <Route path="/dashboard" element={<AppShell><Dashboard /></AppShell>} />
+        {/* Auth-required section */}
+        <Route element={<ProtectedRoute />}>
+          {/* Dashboard: any authenticated role */}
+          <Route path="/dashboard" element={<AppShell><Dashboard /></AppShell>} />
 
-        {/* Pets module */}
-        <Route path="/pets" element={<AppShell><PetsPage /></AppShell>} />
-        <Route path="/pets/add" element={<AppShell><AddPetPage /></AppShell>} />
-        <Route path="/pets/:id/edit" element={<AppShell><EditPetPage /></AppShell>} />
-        <Route path="/pets/:id" element={<AppShell><PetDetailsPage /></AppShell>} />
+          {/* OWNER-only */}
+          <Route
+            path="/pets"
+            element={<><RequireRole allow={['OWNER']} /><AppShell><PetsPage /></AppShell></>}
+          />
+          <Route
+            path="/pets/add"
+            element={<><RequireRole allow={['OWNER']} /><AppShell><AddPetPage /></AppShell></>}
+          />
+          <Route
+            path="/pets/:id/edit"
+            element={<><RequireRole allow={['OWNER']} /><AppShell><EditPetPage /></AppShell></>}
+          />
+          <Route
+            path="/pets/:id"
+            element={<><RequireRole allow={['OWNER']} /><AppShell><PetDetailsPage /></AppShell></>}
+          />
+          <Route
+            path="/appointments"
+            element={<><RequireRole allow={['OWNER']} /><AppShell><AppointmentsPage /></AppShell></>}
+          />
+          {/* add must be distinct from :id */}
+          <Route
+            path="/appointments/add"
+            element={<><RequireRole allow={['OWNER']} /><AppShell><AppointmentEdit /></AppShell></>}
+          />
+          <Route
+            path="/appointments/:id/edit"
+            element={<><RequireRole allow={['OWNER']} /><AppShell><AppointmentEdit /></AppShell></>}
+          />
+          <Route
+            path="/appointments/:id"
+            element={<><RequireRole allow={['OWNER']} /><AppShell><AppointmentDetailsPage /></AppShell></>}
+          />
+          <Route
+            path="/pay/checkout/:apptId"
+            element={<><RequireRole allow={['OWNER']} /><AppShell><PayCheckoutPage /></AppShell></>}
+          />
+          <Route
+            path="/pay/result"
+            element={<><RequireRole allow={['OWNER']} /><AppShell><PayResultPage /></AppShell></>}
+          />
 
-        {/* Vets module */}
-        <Route path="/vets" element={<AppShell><VetsPage /></AppShell>} />
-        <Route path="/vets/add" element={<AppShell><AddVetPage /></AppShell>} />
-        <Route path="/vets/:id" element={<AppShell><VetDetailsPage /></AppShell>} />
-        <Route path="/vets/:id/edit" element={<AppShell><EditVetPage /></AppShell>} />
+          {/* VET-only (medical & schedule) */}
+          <Route
+            path="/health"
+            element={<><RequireRole allow={['VET']} /><AppShell><HealthPage /></AppShell></>}
+          />
+          <Route
+            path="/pets/:id/add-medication"
+            element={<><RequireRole allow={['VET']} /><AppShell><AddMedication /></AppShell></>}
+          />
+          <Route
+            path="/pets/:id/add-vaccine"
+            element={<><RequireRole allow={['VET']} /><AppShell><AddVaccine /></AppShell></>}
+          />
+          <Route
+            path="/vaccines/:id/view"
+            element={<><RequireRole allow={['VET']} /><AppShell><ViewVaccine /></AppShell></>}
+          />
+          <Route
+            path="/vaccines/:id/edit"
+            element={<><RequireRole allow={['VET']} /><AppShell><EditVaccine /></AppShell></>}
+          />
+          {/* Calendar: allow all roles (adjust if you want stricter) */}
+          <Route
+            path="/appointments/calendar"
+            element={<><RequireRole allow={['OWNER','VET','ADMIN']} /><AppShell><ApptCalendarPage /></AppShell></>}
+          />
 
-        {/* Owners Module */}
-        <Route path="/owners" element={<AppShell><OwnersPage /></AppShell>} />
-        <Route path="/owners/add" element={<AppShell><AddOwnerPage /></AppShell>} />
-        <Route path="/owners/:id" element={<AppShell><OwnerDetailsPage /></AppShell>} />
-        <Route path="/owners/:id/edit" element={<AppShell><EditOwnerPage /></AppShell>} />
+          {/* ADMIN-only (directory/master data) */}
+          <Route
+            path="/vets"
+            element={<><RequireRole allow={['ADMIN']} /><AppShell><VetsPage /></AppShell></>}
+          />
+          <Route
+            path="/vets/add"
+            element={<><RequireRole allow={['ADMIN']} /><AppShell><AddVetPage /></AppShell></>}
+          />
+          <Route
+            path="/vets/:id"
+            element={<><RequireRole allow={['ADMIN']} /><AppShell><VetDetailsPage /></AppShell></>}
+          />
+          <Route
+            path="/vets/:id/edit"
+            element={<><RequireRole allow={['ADMIN']} /><AppShell><EditVetPage /></AppShell></>}
+          />
+          <Route
+            path="/owners"
+            element={<><RequireRole allow={['ADMIN']} /><AppShell><OwnersPage /></AppShell></>}
+          />
+          <Route
+            path="/owners/add"
+            element={<><RequireRole allow={['ADMIN']} /><AppShell><AddOwnerPage /></AppShell></>}
+          />
+          <Route
+            path="/owners/:id"
+            element={<><RequireRole allow={['ADMIN']} /><AppShell><OwnerDetailsPage /></AppShell></>}
+          />
+          <Route
+            path="/owners/:id/edit"
+            element={<><RequireRole allow={['ADMIN']} /><AppShell><EditOwnerPage /></AppShell></>}
+          />
 
-        {/* Appointments Module */}
-        <Route path="/appointments" element={<AppShell><AppointmentsPage /></AppShell>} />
-        {/* IMPORTANT: add route must exist (and be distinct) so it doesn't hit :id */}
-        <Route path="/appointments/add" element={<AppShell><AppointmentEdit /></AppShell>} />
-        <Route path="/appointments/:id/edit" element={<AppShell><AppointmentEdit /></AppShell>} />
-        <Route path="/appointments/:id" element={<AppShell><AppointmentDetailsPage /></AppShell>} />
+          {/* Shared: ADMIN or OWNER for invoices (adjust if needed) */}
+          <Route
+            path="/invoices"
+            element={<><RequireRole allow={['ADMIN','OWNER']} /><AppShell><InvoicesPage /></AppShell></>}
+          />
+          <Route
+            path="/invoices/add"
+            element={<><RequireRole allow={['ADMIN','OWNER']} /><AppShell><AddInvoicePage /></AppShell></>}
+          />
+          <Route
+            path="/invoices/:id"
+            element={<><RequireRole allow={['ADMIN','OWNER']} /><AppShell><InvoiceDetailsPage /></AppShell></>}
+          />
+          <Route
+            path="/invoices/:id/edit"
+            element={<><RequireRole allow={['ADMIN','OWNER']} /><AppShell><EditInvoicePage /></AppShell></>}
+          />
 
-        {/* Invoices Module */}
-        <Route path="/invoices" element={<AppShell><InvoicesPage /></AppShell>} />
-        <Route path="/invoices/:id" element={<AppShell><InvoiceDetailsPage /></AppShell>} />
-        <Route path="/invoices/add" element={<AppShell><AddInvoicePage /></AppShell>} />
-        <Route path="/invoices/:id/edit" element={<AppShell><EditInvoicePage /></AppShell>} />
+          {/* Settings: any authenticated role */}
+          <Route path="/settings" element={<AppShell><SettingsPage /></AppShell>} />
+        </Route>
 
-        {/* Appt Calendar */}
-        <Route path="/appointments/calendar" element={<AppShell><ApptCalendarPage /></AppShell>} />
-
-        {/* Health Module */}
-        <Route path="/health" element={<AppShell><HealthPage /></AppShell>} />
-
-        {/* Payment Module (MOCK) */}
-        <Route path="/pay/checkout/:apptId" element={<AppShell><PayCheckoutPage /></AppShell>} />
-        <Route path="/pay/result" element={<AppShell><PayResultPage /></AppShell>} />
-
-	{/* Health Module */}
-	<Route path="/health" element={<AppShell><HealthPage /></AppShell>} />
-	<Route path="/pets/:id/add-medication" element={<AddMedication />} />
-	<Route path="/pets/:id/add-vaccine" element={<AddVaccine />} />
-	<Route path="/vaccines/:id/view" element={<ViewVaccine />} />
-	<Route path="/vaccines/:id/edit" element={<EditVaccine />} />
-
-	{/* Payment Module (MOCK) */}
-	<Route path="/pay/checkout/:apptId" element={<AppShell><PayCheckoutPage /></AppShell>} />
-	<Route path="/pay/result" element={<AppShell><PayResultPage /></AppShell>} />
-
-	{/* Settings Page */}
-        <Route path="/settings" element={<AppShell><SettingsPage /></AppShell>} />
-
-        {/* Redirects & 404 */}
+        {/* Redirects, errors */}
+        <Route path="/403" element={<Forbidden />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<AppShell><NotFound /></AppShell>} />
       </Routes>

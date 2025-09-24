@@ -1,16 +1,6 @@
 import React from "react";
-import { NavLink, Link } from "react-router-dom";
-
-const nav = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/pets", label: "Pets" },
-  { to: "/vets", label: "Vets" },
-  { to: "/owners", label: "Owners" },
-  { to: "/appointments", label: "Appointments" },
-  { to: "/invoices", label: "Invoices" },
-  { to: "/health", label: "Health" },
-  { to: "/settings", label: "Settings" },
-];
+import { Link } from "react-router-dom";
+import RoleNav from "../components/RoleNav"; // ⬅️ NEW
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -23,22 +13,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="p-3 space-y-1">
-          {nav.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                [
-                  "flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition",
-                  isActive
-                    ? "bg-white border border-accent-200 text-accent-700 shadow"
-                    : "text-gray-700 hover:bg-white/70",
-                ].join(" ")
-              }
-            >
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
+          {/* ⬇️ Role-aware links with your exact classes */}
+          <RoleNav
+            linkClassName={({ isActive }) =>
+              [
+                "flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition",
+                isActive
+                  ? "bg-white border border-accent-200 text-accent-700 shadow"
+                  : "text-gray-700 hover:bg-white/70",
+              ].join(" ")
+            }
+          />
         </nav>
       </aside>
 
@@ -60,8 +45,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               to="/login"
               className="text-sm font-medium text-accent-700 hover:text-accent-900"
             >
-
-              
+              {/* keep as-is; fill with text later if you want */}
             </Link>
             <div className="h-8 w-8 rounded-full bg-gradient-to-r from-accent-500 to-brand-500 text-white grid place-items-center text-xs font-bold">
               SR

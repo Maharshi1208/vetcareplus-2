@@ -7,6 +7,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Input from "../components/ui/Input";
 import PasswordInput from "../components/ui/PasswordInput";
 import Button from "../components/ui/Button";
+import { useAuth } from "../context/AuthContext"; // ⬅️ NEW
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -15,8 +16,12 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000"; // ⬅️ NEW
+
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth(); // ⬅️ NEW
+
   const {
     register,
     handleSubmit,
@@ -28,27 +33,27 @@ export default function Login() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      const res = await fetch("http://localhost:4000/auth/login", {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Login failed");
-      }
-
       const body = await res.json();
 
-      // ✅ Fix: token is at body.tokens.access
-      if (body.tokens?.access) {
-        localStorage.setItem("token", body.tokens.access);
+      if (!res.ok) {
+        throw new Error(body?.error || "Login failed");
       }
 
-      navigate("/dashboard");
+      // ✅ token is at body.tokens.access — store via AuthContext
+      if (body?.tokens?.access) {
+        await login(body.tokens.access); // sets localStorage 'access' + role in context
+        navigate("/dashboard");
+      } else {
+        throw new Error("Missing access token in response");
+      }
     } catch (err: any) {
-      alert(err.message);
+      alert(err.message || "Login failed");
     }
   };
 
@@ -59,7 +64,7 @@ export default function Login() {
           <div className="mx-auto mb-2 h-10 w-10 rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 grid place-items-center text-white font-bold">
             V
           </div>
-          <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
           <p className="text-gray-600 text-sm">Welcome back to VetCare+</p>
         </div>
 

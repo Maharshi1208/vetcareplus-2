@@ -19,6 +19,10 @@ import authRoutes from './auth/routes.js';
 import swaggerUi from 'swagger-ui-express';
 import { getSpec } from './docs/openapi.js';
 
+// ⬇️ NEW: RBAC middleware imports (non-breaking)
+import { authRequired, requireRole } from './middleware/auth.js';
+import type { AuthedRequest } from './middleware/auth.js';
+
 const app = express();
 
 /** OpenAPI JSON + Swagger UI */
@@ -59,6 +63,18 @@ app.get('/health/db', async (_req, res) => {
     res.status(500).json({ ok: false, error: 'DB not reachable' });
   }
 });
+
+/** ⬇️ NEW: Dev-only sanity endpoints (safe; don’t affect existing routes) */
+if (env.NODE_ENV !== 'production') {
+  app.get('/whoami', authRequired, (req, res) => {
+    const user = (req as AuthedRequest).user;
+    res.json({ ok: true, user });
+  });
+
+  app.get('/admin/ping', authRequired, requireRole('ADMIN'), (_req, res) => {
+    res.json({ ok: true, scope: 'ADMIN' });
+  });
+}
 
 /** Routes */
 app.use('/auth', authRoutes);
