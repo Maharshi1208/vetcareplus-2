@@ -33,6 +33,10 @@ import HealthPage from "./pages/Health";
 import PayCheckoutPage from "./pages/PayCheckout";
 import PayResultPage from "./pages/PayResult";
 import SettingsPage from "./pages/Settings";
+import AddMedication from "./pages/AddMedication";
+import AddVaccine from "./pages/AddVaccine";
+import ViewVaccine from "./pages/ViewVaccine";
+import EditVaccine from "./pages/EditVaccine";
 
 // simple stub pages (we'll design later)
 const Page = ({ title }: { title: string }) => (
@@ -102,7 +106,18 @@ export default function App() {
         <Route path="/pay/checkout/:apptId" element={<AppShell><PayCheckoutPage /></AppShell>} />
         <Route path="/pay/result" element={<AppShell><PayResultPage /></AppShell>} />
 
-        {/* Settings Page */}
+	{/* Health Module */}
+	<Route path="/health" element={<AppShell><HealthPage /></AppShell>} />
+	<Route path="/pets/:id/add-medication" element={<AddMedication />} />
+	<Route path="/pets/:id/add-vaccine" element={<AddVaccine />} />
+	<Route path="/vaccines/:id/view" element={<ViewVaccine />} />
+	<Route path="/vaccines/:id/edit" element={<EditVaccine />} />
+
+	{/* Payment Module (MOCK) */}
+	<Route path="/pay/checkout/:apptId" element={<AppShell><PayCheckoutPage /></AppShell>} />
+	<Route path="/pay/result" element={<AppShell><PayResultPage /></AppShell>} />
+
+	{/* Settings Page */}
         <Route path="/settings" element={<AppShell><SettingsPage /></AppShell>} />
 
         {/* Redirects & 404 */}
