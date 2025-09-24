@@ -1,11 +1,14 @@
 // src/pages/Appointments.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { listAppointments, type Appointment } from "../services/appointments";
+import {
+  listAppointments,
+  type Appointment,
+  updateAppointmentStatus, // <-- NEW helper with fallbacks
+} from "../services/appointments";
 
 type FlashState = { type: "success" | "error" | "info"; message: string };
 
-// Keep your UI status labels
 type ApptStatus = "Booked" | "Completed" | "Cancelled";
 type Appt = {
   id: string;
@@ -13,7 +16,7 @@ type Appt = {
   start: string; // HH:mm (Toronto)
   end: string;   // HH:mm (Toronto)
   pet: string;
-  owner: string; // we only have ownerId from backend; showing "—" for now
+  owner: string;
   vet: string;
   reason: string;
   status: ApptStatus;
@@ -32,16 +35,13 @@ function statusBadge(s: ApptStatus) {
   );
 }
 
-// ---- helpers to format to your UI shape ----
+const TZ = "America/Toronto";
 function toTorontoDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-CA", { timeZone: "America/Toronto" }); // e.g., 2025-09-29
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ });
 }
 function toTorontoTime(iso: string): string {
-  const d = new Date(iso);
-  // 24-hour HH:mm to match your UI (e.g., 09:00)
-  return d.toLocaleTimeString("en-GB", {
-    timeZone: "America/Toronto",
+  return new Date(iso).toLocaleTimeString("en-GB", {
+    timeZone: TZ,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -54,15 +54,27 @@ function mapStatus(s: Appointment["status"]): ApptStatus {
     case "COMPLETED":
       return "Completed";
     case "CANCELLED":
-    case "NO_SHOW": // show as Cancelled in your UI
+    case "NO_SHOW":
       return "Cancelled";
     default:
       return "Booked";
   }
 }
+function rowFrom(a: Appointment): Appt {
+  return {
+    id: a.id,
+    date: toTorontoDate(a.start),
+    start: toTorontoTime(a.start),
+    end: toTorontoTime(a.end),
+    pet: a.pet?.name ?? "—",
+    owner: a.pet?.ownerId ? String(a.pet.ownerId) : "—",
+    vet: a.vet?.name ?? "—",
+    reason: a.reason ?? "—",
+    status: mapStatus(a.status),
+  };
+}
 
 export default function AppointmentsPage() {
-  // flash banner (one-time)
   const location = useLocation();
   const navigate = useNavigate();
   const [flash, setFlash] = useState<FlashState | null>(null);
@@ -75,59 +87,75 @@ export default function AppointmentsPage() {
     }
   }, [location, navigate]);
 
-  // filters
   const [q, setQ] = useState("");
   const [picked, setPicked] = useState("");
 
-  // live data
   const [rows, setRows] = useState<Appt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  // fetch on mount
   useEffect(() => {
     let mounted = true;
-    async function load() {
+    (async () => {
       try {
         setLoading(true);
         setError(null);
         const data = await listAppointments({ page: 1, pageSize: 50 });
-        const mapped: Appt[] =
-          (data.appointments || []).map((a) => ({
-            id: a.id,
-            date: toTorontoDate(a.start),
-            start: toTorontoTime(a.start),
-            end: toTorontoTime(a.end),
-            pet: a.pet?.name ?? "—",
-            owner: a.pet?.ownerId ? String(a.pet.ownerId) : "—", // backend provides ownerId only
-            vet: a.vet?.name ?? "—",
-            reason: a.reason ?? "—",
-            status: mapStatus(a.status),
-          })) ?? [];
-        if (mounted) setRows(mapped);
+        if (mounted) setRows((data.appointments || []).map(rowFrom));
       } catch (e) {
         console.error(e);
         if (mounted) setError("Failed to load appointments. Make sure you are logged in as admin.");
       } finally {
         if (mounted) setLoading(false);
       }
-    }
-    load();
-    return () => {
-      mounted = false;
-    };
+    })();
+    return () => { mounted = false; };
   }, []);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     return rows.filter((a) => {
       const matchesQuery =
-        !s ||
-        [a.pet, a.owner, a.vet, a.reason, a.status].join(" ").toLowerCase().includes(s);
+        !s || [a.pet, a.owner, a.vet, a.reason, a.status].join(" ").toLowerCase().includes(s);
       const matchesDate = !picked || a.date === picked;
       return matchesQuery && matchesDate;
     });
   }, [rows, q, picked]);
+
+  // Cancel / Restore
+  async function onToggleCancel(row: Appt) {
+    if (busyId) return;
+    if (row.status === "Completed") {
+      // optional UX: inform user completed items can't be changed
+      return;
+    }
+
+    const toStatus = row.status === "Cancelled" ? "BOOKED" : "CANCELLED";
+    const confirmMsg =
+      toStatus === "CANCELLED" ? "Cancel this appointment?" : "Restore this appointment to Booked?";
+    if (!window.confirm(confirmMsg)) return;
+
+    setBusyId(row.id);
+    // optimistic update
+    const prev = rows;
+    setRows((r) =>
+      r.map((x) => (x.id === row.id ? { ...x, status: toStatus === "CANCELLED" ? "Cancelled" : "Booked" } : x))
+    );
+    try {
+      const updated = await updateAppointmentStatus(row.id, toStatus);
+      // sync actual from server
+      setRows((r) => r.map((x) => (x.id === row.id ? rowFrom(updated) : x)));
+    } catch (e: any) {
+      console.error(e);
+      setRows(prev); // rollback
+      const msg =
+        e?.error || e?.message || e?.response?.data?.error || "Failed to update status. Please try again.";
+      window.alert(msg);
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div className="p-6">
@@ -135,7 +163,6 @@ export default function AppointmentsPage() {
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Appointments</h1>
-          {/* keep your subtitle to avoid design/content changes */}
           <p className="text-sm text-gray-500">Calendar of bookings (UI-only list).</p>
         </div>
         <div className="flex items-center gap-3">
@@ -151,27 +178,22 @@ export default function AppointmentsPage() {
         </div>
       </div>
 
-      {/* Flash banner */}
+      {/* Flash */}
       {flash && (
         <div className="mb-4 flex items-start justify-between rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">
           <div className="flex items-center gap-2">
             <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
             <span className="font-medium">{flash.message}</span>
           </div>
-          <button
-            onClick={() => setFlash(null)}
-            className="rounded-md px-2 py-1 text-green-700 hover:bg-green-100"
-          >
+          <button onClick={() => setFlash(null)} className="rounded-md px-2 py-1 text-green-700 hover:bg-green-100">
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Error banner */}
+      {/* Error */}
       {error && (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </div>
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
       )}
 
       {/* Card */}
@@ -245,10 +267,12 @@ export default function AppointmentsPage() {
                         </Link>
                         <button
                           type="button"
-                          onClick={() => window.alert("UI-only: cancel flow")}
-                          className="rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+                          onClick={() => onToggleCancel(a)}
+                          disabled={!!busyId || a.status === "Completed"}
+                          title={a.status === "Completed" ? "Completed appointments can't be changed" : ""}
+                          className="rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-60"
                         >
-                          Cancel
+                          {a.status === "Cancelled" ? "Restore" : "Cancel"}
                         </button>
                       </div>
                     </td>

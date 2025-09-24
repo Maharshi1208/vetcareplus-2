@@ -46,12 +46,13 @@ async function withinAvailability(vetId: string, start: Date, end: Date) {
   const e = minutesOfDayLocal(end);
   if (!(e > s)) return false;
 
-const slots = await prisma.vetAvailability.findMany({
-     where: { vetId, weekday: wd },
-     select: { startMinutes: true, endMinutes: true }
-   });
-   // ok if any slot fully contains [s,e)
-   return slots.some((slot) => s >= slot.startMinutes && e <= slot.endMinutes);}
+  const slots = await prisma.vetAvailability.findMany({
+    where: { vetId, weekday: wd },
+    select: { startMinutes: true, endMinutes: true }
+  });
+  // ok if any slot fully contains [s,e)
+  return slots.some((slot) => s >= slot.startMinutes && e <= slot.endMinutes);
+}
 
 // conflict with existing appointments?
 async function apptConflict(
@@ -105,6 +106,11 @@ const listQuerySchema = z.object({
   status: z.enum(['BOOKED', 'CANCELLED', 'COMPLETED']).optional(),
   from: z.string().optional(), // ISO or YYYY-MM-DD
   to: z.string().optional(),   // ISO or YYYY-MM-DD (exclusive)
+});
+
+// for generic status endpoint
+const statusSchema = z.object({
+  status: z.enum(['BOOKED', 'CANCELLED', 'COMPLETED']),
 });
 
 // ---------- routes ----------
@@ -291,7 +297,172 @@ router.patch('/:id/cancel', authRequired, async (req: AuthedRequest, res) => {
     }
   } catch {}
 
+  // keep the minimal response shape you already had (to avoid breaking anything)
   res.json({ ok: true, appointment: { id: updated.id, status: updated.status } });
+});
+
+/* NEW ---------------------------------------------
+   PATCH /appointments/:id/restore
+   - Only allowed when status === CANCELLED
+   - Re-checks availability + conflicts for current time window
+-------------------------------------------------- */
+router.patch('/:id/restore', authRequired, async (req: AuthedRequest, res) => {
+  const appt = await prisma.appointment.findUnique({
+    where: { id: req.params.id },
+    select: {
+      id: true, status: true, start: true, end: true, vetId: true,
+      pet: { select: { ownerId: true, name: true } },
+      vet: { select: { name: true } },
+    }
+  });
+  if (!appt) return res.status(404).json({ ok: false, error: 'Not found' });
+  if (appt.status !== 'CANCELLED') {
+    return res.status(400).json({ ok: false, error: 'Only CANCELLED can be restored' });
+  }
+  if (!isAdmin(req) && appt.pet.ownerId !== req.user!.sub) {
+    return res.status(403).json({ ok: false, error: 'Forbidden' });
+  }
+
+  const s = appt.start;
+  const e = appt.end;
+
+  if (!(await withinAvailability(appt.vetId, s, e))) {
+    return res.status(409).json({ ok: false, error: 'Outside vet availability' });
+  }
+  if (await apptConflict(appt.vetId, s, e, appt.id)) {
+    return res.status(409).json({ ok: false, error: 'Time slot no longer available' });
+  }
+
+  const updated = await prisma.appointment.update({
+    where: { id: appt.id },
+    data: { status: 'BOOKED' },
+    select: {
+      id: true, petId: true, vetId: true, start: true, end: true, status: true, reason: true, notes: true,
+      pet: { select: { name: true, ownerId: true } },
+      vet: { select: { name: true, specialty: true } },
+    }
+  });
+
+  // Optional: treat restore like "booked" confirmation
+  try {
+    const owner = await prisma.user.findUnique({
+      where: { id: appt.pet.ownerId },
+      select: { email: true },
+    });
+    if (owner?.email && appt.pet.name && appt.vet?.name) {
+      void sendApptBooked(owner.email, appt.pet.name, appt.vet.name, updated.start, updated.end);
+    }
+  } catch {}
+
+  res.json({ ok: true, appointment: updated });
+});
+
+/* NEW ---------------------------------------------
+   POST /appointments/:id/status
+   - Generic status update used by frontend fallback
+   - Mirrors rules of the explicit endpoints above
+   - COMPLETED remains admin-only and requires SUCCESS payment
+-------------------------------------------------- */
+router.post('/:id/status', authRequired, async (req: AuthedRequest, res) => {
+  const { status } = statusSchema.parse(req.body);
+
+  const appt = await prisma.appointment.findUnique({
+    where: { id: req.params.id },
+    select: {
+      id: true, status: true, start: true, end: true, vetId: true,
+      pet: { select: { ownerId: true, name: true } },
+      vet: { select: { name: true } },
+    }
+  });
+  if (!appt) return res.status(404).json({ ok: false, error: 'Not found' });
+
+  // CANCEL
+  if (status === 'CANCELLED') {
+    if (appt.status !== 'BOOKED') {
+      return res.status(400).json({ ok: false, error: 'Only BOOKED can be cancelled' });
+    }
+    if (!isAdmin(req) && appt.pet.ownerId !== req.user!.sub) {
+      return res.status(403).json({ ok: false, error: 'Forbidden' });
+    }
+    const updated = await prisma.appointment.update({
+      where: { id: appt.id },
+      data: { status: 'CANCELLED' },
+    });
+
+    try {
+      const owner = await prisma.user.findUnique({
+        where: { id: appt.pet.ownerId },
+        select: { email: true },
+      });
+      if (owner?.email && appt.pet.name && appt.vet?.name) {
+        void sendApptCancelled(owner.email, appt.pet.name, appt.vet.name, appt.start);
+      }
+    } catch {}
+
+    return res.json({ ok: true, appointment: updated });
+  }
+
+  // RESTORE -> BOOKED
+  if (status === 'BOOKED') {
+    if (appt.status !== 'CANCELLED') {
+      return res.status(400).json({ ok: false, error: 'Only CANCELLED can be restored' });
+    }
+    if (!isAdmin(req) && appt.pet.ownerId !== req.user!.sub) {
+      return res.status(403).json({ ok: false, error: 'Forbidden' });
+    }
+
+    const s = appt.start;
+    const e = appt.end;
+
+    if (!(await withinAvailability(appt.vetId, s, e))) {
+      return res.status(409).json({ ok: false, error: 'Outside vet availability' });
+    }
+    if (await apptConflict(appt.vetId, s, e, appt.id)) {
+      return res.status(409).json({ ok: false, error: 'Time slot no longer available' });
+    }
+
+    const updated = await prisma.appointment.update({
+      where: { id: appt.id },
+      data: { status: 'BOOKED' },
+    });
+
+    try {
+      const owner = await prisma.user.findUnique({
+        where: { id: appt.pet.ownerId },
+        select: { email: true },
+      });
+      if (owner?.email && appt.pet.name && appt.vet?.name) {
+        void sendApptBooked(owner.email, appt.pet.name, appt.vet.name, updated.start, updated.end);
+      }
+    } catch {}
+
+    return res.json({ ok: true, appointment: updated });
+  }
+
+  // COMPLETE (admin only + paid)
+  if (status === 'COMPLETED') {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ ok: false, error: 'Admin only' });
+    }
+    if (appt.status !== 'BOOKED') {
+      return res.status(400).json({ ok: false, error: 'Only BOOKED appointments can be completed' });
+    }
+    const paid = await prisma.payment.findFirst({
+      where: { appointmentId: appt.id, status: 'SUCCESS' },
+      select: { id: true }
+    });
+    if (!paid) {
+      return res.status(400).json({ ok: false, error: 'Requires a successful payment' });
+    }
+    const updated = await prisma.appointment.update({
+      where: { id: appt.id },
+      data: { status: 'COMPLETED' }
+    });
+    return res.json({ ok: true, appointment: updated });
+  }
+
+  // should never reach here because of schema, but just in case
+  return res.status(400).json({ ok: false, error: 'Unsupported status transition' });
 });
 
 // PATCH /appointments/:id/complete (ADMIN only, requires SUCCESS payment)

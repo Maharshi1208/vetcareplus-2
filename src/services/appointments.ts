@@ -1,4 +1,4 @@
-// frontend/src/services/appointments.ts
+// src/services/appointments.ts
 import { apiGet, apiPost, apiPatch, apiDelete } from "./api";
 
 /** ---- Types ---- */
@@ -33,15 +33,33 @@ export type AppointmentListResponse = {
 
 export type AppointmentResponse = { ok: boolean; appointment: Appointment };
 
+/** ---- Utils ---- */
+function errMsg(e: any): string {
+  const data = e?.response?.data;
+  if (typeof data === "string") return data;
+  if (data?.error) return String(data.error);
+  return e?.message || e?.response?.statusText || "Request failed";
+}
+
+function plusOneDay(yyyyMmDd: string): string {
+  const [y, m, d] = yyyyMmDd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, (m - 1), d, 0, 0, 0));
+  dt.setUTCDate(dt.getUTCDate() + 1);
+  const y2 = dt.getUTCFullYear();
+  const m2 = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const d2 = String(dt.getUTCDate()).padStart(2, "0");
+  return `${y2}-${m2}-${d2}`;
+}
+
 /** ---- List / Read ---- */
 
-// Server returns a paginated envelope; keep it so we can show totals later.
 export async function listAppointments(params?: {
   page?: number;
   pageSize?: number;
-  vetId?: string;   // your backend may ignore filters; we’ll still pass if present
+  vetId?: string;
   petId?: string;
-  date?: string;    // YYYY-MM-DD
+  /** UI date filter; mapped to backend (from..to) */
+  date?: string; // YYYY-MM-DD
   status?: AppointmentStatus;
 }): Promise<AppointmentListResponse> {
   const qs = new URLSearchParams();
@@ -49,8 +67,12 @@ export async function listAppointments(params?: {
   if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
   if (params?.vetId) qs.set("vetId", params.vetId);
   if (params?.petId) qs.set("petId", params.petId);
-  if (params?.date) qs.set("date", params.date);
   if (params?.status) qs.set("status", params.status);
+  // backend expects from/to; map a single day to [date, date+1)
+  if (params?.date) {
+    qs.set("from", params.date);
+    qs.set("to", plusOneDay(params.date));
+  }
   const q = qs.toString();
   const url = q ? `/appointments?${q}` : "/appointments";
   return apiGet<AppointmentListResponse>(url);
@@ -63,11 +85,11 @@ export async function getAppointment(id: string): Promise<Appointment> {
 
 /** ---- Create / Update / Delete ---- */
 
-// IMPORTANT: start/end must be ISO datetimes with correct timezone, e.g. "2025-09-29T09:00:00-04:00"
+// NOTE: start/end must be ISO with correct timezone (e.g., "2025-09-29T09:00:00-04:00")
 export async function createAppointment(payload: {
   vetId: string;
   petId: string;
-  start: string; // ISO with offset (e.g., -04:00)
+  start: string; // ISO with offset
   end: string;   // ISO with offset
   reason?: string | null;
   notes?: string | null;
@@ -88,31 +110,89 @@ export async function deleteAppointment(id: string): Promise<{ ok: true }> {
   return apiDelete(`/appointments/${id}`);
 }
 
-/** ---- Helpers for building ISO strings in Toronto time (optional, handy for forms) ---- */
+/** ---- Reschedule ---- */
+
+export async function rescheduleAppointment(
+  id: string,
+  input: { date: string; start: string; end: string }
+): Promise<Appointment> {
+  const payload = {
+    start: torontoISO(input.date, input.start),
+    end: torontoISO(input.date, input.end),
+  };
+  const data = await apiPatch<AppointmentResponse>(`/appointments/${id}/reschedule`, payload);
+  return data.appointment;
+}
+
+/** ---- Robust status updater (with fallbacks that match your backend) ----
+ * Order:
+ *  1) POST /appointments/:id/status   { status }   ← you added this
+ *  2) PATCH /appointments/:id         { status }   ← some servers support this
+ *  3) PATCH /appointments/:id/cancel               ← explicit for CANCELLED
+ *     PATCH /appointments/:id/restore              ← explicit for BOOKED
+ */
+export async function updateAppointmentStatus(
+  id: string,
+  status: AppointmentStatus
+): Promise<Appointment> {
+  // 1) preferred: generic status endpoint
+  try {
+    const d = await apiPost<AppointmentResponse>(`/appointments/${id}/status`, { status });
+    return d.appointment;
+  } catch (e1: any) {
+    // 2) generic PATCH
+    try {
+      const d = await apiPatch<AppointmentResponse>(`/appointments/${id}`, { status });
+      return d.appointment;
+    } catch (e2: any) {
+      // 3) explicit verbs for cancel/restore
+      try {
+        if (status === "CANCELLED") {
+          const d = await apiPatch<AppointmentResponse>(`/appointments/${id}/cancel`, {});
+          return d.appointment;
+        }
+        if (status === "BOOKED") {
+          const d = await apiPatch<AppointmentResponse>(`/appointments/${id}/restore`, {});
+          return d.appointment;
+        }
+      } catch (e3: any) {
+        throw new Error(
+          `POST /status failed: ${errMsg(e1)} | PATCH /:id failed: ${errMsg(e2)} | explicit failed: ${errMsg(e3)}`
+        );
+      }
+      // if other statuses reach here, surface earlier error
+      throw new Error(`POST /status failed: ${errMsg(e1)} | PATCH /:id failed: ${errMsg(e2)}`);
+    }
+  }
+}
+
+/** ---- Helpers for building ISO strings in Toronto time ---- */
 
 // Given date "YYYY-MM-DD" and time "HH:MM", return ISO with -04:00/-05:00 depending on DST.
 export function torontoISO(dateYYYYMMDD: string, timeHHMM: string): string {
-  // This constructs a local Date in America/Toronto, then formats with the correct offset.
-  // We keep it simple here; if you use a date lib (e.g., luxon/dayjs), you can swap this out.
   const [y, m, d] = dateYYYYMMDD.split("-").map(Number);
   const [hh, mm] = timeHHMM.split(":").map(Number);
-  // Build in local system time, then correct to Toronto using Intl API.
-  const dt = new Date(Date.UTC(y, (m - 1), d, hh, mm, 0)); // start from UTC
-  // Format with offset for America/Toronto
+  // Build a UTC base, then format into America/Toronto wall time
+  const dt = new Date(Date.UTC(y, m - 1, d, hh, mm, 0));
+
   const fmt = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Toronto",
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
     hour12: false,
   }).formatToParts(dt);
 
   const parts: Record<string, string> = {};
   for (const p of fmt) parts[p.type] = p.value;
 
-  // Recompose local wall time
-  const local = new Date(`${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`);
-  // Compute offset between local time and UTC, in minutes
-  const offsetMin = -local.getTimezoneOffset(); // e.g. -240 => -04:00
+  const local = new Date(
+    `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`
+  );
+  const offsetMin = -local.getTimezoneOffset();
   const sign = offsetMin >= 0 ? "+" : "-";
   const offAbs = Math.abs(offsetMin);
   const offHH = String(Math.trunc(offAbs / 60)).padStart(2, "0");
@@ -120,11 +200,11 @@ export function torontoISO(dateYYYYMMDD: string, timeHHMM: string): string {
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${sign}${offHH}:${offMM}`;
 }
 
-// helpers (thin wrappers)
+/** ---- Convenience wrappers (UI can keep using these) ---- */
 export async function cancelAppointment(id: string) {
-  return updateAppointment(id, { status: "CANCELLED" });
+  return updateAppointmentStatus(id, "CANCELLED");
 }
 
 export async function restoreAppointment(id: string) {
-  return updateAppointment(id, { status: "BOOKED" });
+  return updateAppointmentStatus(id, "BOOKED");
 }

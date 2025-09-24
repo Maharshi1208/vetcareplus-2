@@ -16,7 +16,6 @@ import vetRoutes from './vet/routes.js';
 import petRoutes from './pet/routes.js';
 import adminRoutes from './admin/routes.js';
 import authRoutes from './auth/routes.js';
-
 import swaggerUi from 'swagger-ui-express';
 import { getSpec } from './docs/openapi.js';
 
