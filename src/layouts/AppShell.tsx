@@ -1,8 +1,12 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import RoleNav from "../components/RoleNav"; // ⬅️ NEW
+import { Link, useNavigate } from "react-router-dom";
+import RoleNav from "../components/RoleNav";
+import { useAuth } from "../context/AuthContext";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate();
+  const { role, logout } = useAuth();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-accent-300 to-brand-200 bg-fixed text-gray-900 flex">
       {/* Sidebar */}
@@ -13,7 +17,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="p-3 space-y-1">
-          {/* ⬇️ Role-aware links with your exact classes */}
+          {/* Role-aware links with your exact classes */}
           <RoleNav
             linkClassName={({ isActive }) =>
               [
@@ -41,12 +45,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* Right side */}
           <div className="ml-4 flex items-center gap-4">
-            <Link
-              to="/login"
+            {/* Logout + role badge */}
+            <button
+              type="button"
+              onClick={() => { logout(); navigate("/login"); }}
               className="text-sm font-medium text-accent-700 hover:text-accent-900"
             >
-              {/* keep as-is; fill with text later if you want */}
-            </Link>
+              Logout
+            </button>
+            <span className="text-xs text-gray-600 border px-2 py-1 rounded-lg">
+              {role ?? "—"}
+            </span>
+
+            {/* Existing avatar */}
             <div className="h-8 w-8 rounded-full bg-gradient-to-r from-accent-500 to-brand-500 text-white grid place-items-center text-xs font-bold">
               SR
             </div>
