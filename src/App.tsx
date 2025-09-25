@@ -52,7 +52,6 @@ import Forbidden from "./pages/Forbidden";
 
 
 // simple stub pages (we'll design later)
->>>>>>> 0b7a3b81 (feat(health): add UI for medication/vaccine forms and integrate with Health page)
 const Page = ({ title }: { title: string }) => (
   <div className="space-y-2">
     <h1 className="text-2xl font-bold">{title}</h1>
@@ -206,10 +205,9 @@ export default function App() {
           <Route path="/settings" element={<AppShell><SettingsPage /></AppShell>} />
         </Route>
 
-<<<<<<< HEAD
         {/* Redirects, errors */}
         <Route path="/403" element={<Forbidden />} />
-=======
+
         {/* Appt Calendar */}
         <Route path="/appointments/calendar" element={<AppShell><ApptCalendarPage /></AppShell>} />
 
@@ -233,7 +231,6 @@ export default function App() {
         <Route path="/settings" element={<AppShell><SettingsPage /></AppShell>} />
 
         {/* Redirects & 404 */}
->>>>>>> 0b7a3b81 (feat(health): add UI for medication/vaccine forms and integrate with Health page)
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<AppShell><NotFound /></AppShell>} />
       </Routes>
