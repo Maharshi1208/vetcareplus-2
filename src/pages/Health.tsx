@@ -10,8 +10,8 @@ type HealthEntry = {
   owner: string;
   vet?: string;
   type: EntryType;
-  title: string; // e.g. "Rabies", "Flea prevention"
-  note?: string; // e.g. "Next due: 2026-08-01", "Bravecto chewable"
+  title: string;
+  note?: string;
 };
 
 // ---- UI-only mock data ----
@@ -62,15 +62,32 @@ function typeBadge(t: EntryType) {
 }
 
 export default function HealthPage() {
-  // flash (one-time)
   const location = useLocation();
   const navigate = useNavigate();
+
   const [flash, setFlash] = useState<FlashState | null>(null);
+  const [entries, setEntries] = useState<HealthEntry[]>(MOCK_ENTRIES);
 
   useEffect(() => {
     const s = (location.state as any)?.flash as FlashState | undefined;
-    if (s) {
-      setFlash(s);
+    const newEntry = (location.state as any)?.newEntry as HealthEntry | undefined;
+
+    if (s) setFlash(s);
+
+    if (newEntry) {
+      setEntries((prev) => {
+        const exists = prev.find((e) => e.id === newEntry.id);
+        if (exists) {
+          // ✅ Update existing entry
+          return prev.map((e) => (e.id === newEntry.id ? newEntry : e));
+        } else {
+          // ✅ Add new entry
+          return [newEntry, ...prev];
+        }
+      });
+    }
+
+    if (s || newEntry) {
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location, navigate]);
@@ -81,7 +98,7 @@ export default function HealthPage() {
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return MOCK_ENTRIES.filter((e) => {
+    return entries.filter((e) => {
       const matchesText =
         !s ||
         [e.pet, e.owner, e.vet ?? "", e.title, e.note ?? "", e.date, e.type]
@@ -91,7 +108,7 @@ export default function HealthPage() {
       const matchesType = !typeFilter || e.type === typeFilter;
       return matchesText && matchesType;
     });
-  }, [q, typeFilter]);
+  }, [q, typeFilter, entries]);
 
   return (
     <div className="p-6 space-y-6">
@@ -102,18 +119,15 @@ export default function HealthPage() {
           <p className="text-sm text-gray-500">Vaccinations and medications (UI-only).</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Stubs for later forms */}
           <Link
-            to="#"
+            to="/health/add-medication"
             className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-50"
-            title="Stub — to be wired later"
           >
             Add Medication
           </Link>
           <Link
-            to="#"
+            to="/health/add-vaccine"
             className="rounded-xl bg-blue-600 px-3 py-2 text-sm text-white shadow-sm hover:bg-blue-700"
-            title="Stub — to be wired later"
           >
             Add Vaccine
           </Link>
@@ -185,16 +199,16 @@ export default function HealthPage() {
 
                   <div className="mt-3 flex items-center gap-2 sm:mt-0">
                     <Link
-                      to="#"
+                      to={`/vaccines/${e.id}/view`}
+                      state={{ entry: e }}
                       className="rounded-lg border px-3 py-1 text-sm hover:bg-white"
-                      title="Stub — to be wired later"
                     >
                       View
                     </Link>
                     <Link
-                      to="#"
+                      to={`/vaccines/${e.id}/edit`}
+                      state={{ entry: e }}
                       className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
-                      title="Stub — to be wired later"
                     >
                       Edit
                     </Link>

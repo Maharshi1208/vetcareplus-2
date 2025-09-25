@@ -33,10 +33,12 @@ import HealthPage from "./pages/Health";
 import PayCheckoutPage from "./pages/PayCheckout";
 import PayResultPage from "./pages/PayResult";
 import SettingsPage from "./pages/Settings";
+
 import AddMedication from "./pages/AddMedication";
 import AddVaccine from "./pages/AddVaccine";
 import ViewVaccine from "./pages/ViewVaccine";
 import EditVaccine from "./pages/EditVaccine";
+
 
 // NEW: RBAC helpers
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -44,6 +46,13 @@ import RequireRole from "./components/RequireRole";
 import Forbidden from "./pages/Forbidden";
 
 // simple stub pages (kept as-is)
+
+
+
+
+
+// simple stub pages (we'll design later)
+>>>>>>> 0b7a3b81 (feat(health): add UI for medication/vaccine forms and integrate with Health page)
 const Page = ({ title }: { title: string }) => (
   <div className="space-y-2">
     <h1 className="text-2xl font-bold">{title}</h1>
@@ -197,8 +206,34 @@ export default function App() {
           <Route path="/settings" element={<AppShell><SettingsPage /></AppShell>} />
         </Route>
 
+<<<<<<< HEAD
         {/* Redirects, errors */}
         <Route path="/403" element={<Forbidden />} />
+=======
+        {/* Appt Calendar */}
+        <Route path="/appointments/calendar" element={<AppShell><ApptCalendarPage /></AppShell>} />
+
+        {/* Payment Module (MOCK) */}
+        <Route path="/pay/checkout/:apptId" element={<AppShell><PayCheckoutPage /></AppShell>} />
+        <Route path="/pay/result" element={<AppShell><PayResultPage /></AppShell>} />
+
+	{/* Health Module */}
+	<Route path="/health" element={<AppShell><HealthPage /></AppShell>} />
+	<Route path="/health/add-medication" element={<AppShell><AddMedication /></AppShell>} />
+	<Route path="/health/add-vaccine" element={<AppShell><AddVaccine /></AppShell>} />
+	<Route path="/vaccines/:id/view" element={<AppShell><ViewVaccine /></AppShell>} />
+	<Route path="/vaccines/:id/edit" element={<AppShell><EditVaccine /></AppShell>} />
+
+
+	{/* Payment Module (MOCK) */}
+	<Route path="/pay/checkout/:apptId" element={<AppShell><PayCheckoutPage /></AppShell>} />
+	<Route path="/pay/result" element={<AppShell><PayResultPage /></AppShell>} />
+
+	{/* Settings Page */}
+        <Route path="/settings" element={<AppShell><SettingsPage /></AppShell>} />
+
+        {/* Redirects & 404 */}
+>>>>>>> 0b7a3b81 (feat(health): add UI for medication/vaccine forms and integrate with Health page)
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<AppShell><NotFound /></AppShell>} />
       </Routes>

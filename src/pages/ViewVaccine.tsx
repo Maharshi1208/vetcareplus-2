@@ -1,17 +1,41 @@
 import React from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation } from "react-router-dom";
 
 export default function ViewVaccine() {
-  const { id } = useParams(); // vaccine id placeholder
+  const { id } = useParams(); // vaccine id from route
+  const location = useLocation();
+
+  // Get entry passed via Link state (UI-only)
+  const entry = (location.state as any)?.entry;
+
+  if (!entry) {
+    return (
+      <div className="p-6 space-y-4">
+        <div className="text-sm text-gray-500 flex items-center gap-2">
+          <Link to="/health" className="hover:underline">Health</Link>
+          <span>/</span>
+          <span className="text-gray-700">View Vaccine</span>
+        </div>
+        <h1 className="text-2xl font-semibold">Not Found</h1>
+        <p className="text-gray-600">No vaccine found with ID {id} (UI-only).</p>
+        <Link
+          to="/health"
+          className="px-4 py-2 rounded-xl border border-gray-300 hover:bg-gray-50"
+        >
+          Back
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-6">
       {/* Breadcrumbs */}
       <div className="text-sm text-gray-500 flex items-center gap-2">
         <Link to="/health" className="hover:underline">Health</Link>
         <span>/</span>
         <span className="text-gray-700">View Vaccine</span>
-        {id ? <span className="ml-1 text-gray-400">({id})</span> : null}
+        <span className="ml-1 text-gray-400">({id})</span>
       </div>
 
       {/* Title */}
@@ -22,22 +46,24 @@ export default function ViewVaccine() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-gray-600 mb-1">Vaccine Name</label>
-            <p className="px-3 py-2 rounded-xl border bg-gray-50">Rabies (UI only)</p>
+            <p className="px-3 py-2 rounded-xl border bg-gray-50">{entry.title}</p>
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">Given On</label>
-            <p className="px-3 py-2 rounded-xl border bg-gray-50">2025-08-01</p>
+            <p className="px-3 py-2 rounded-xl border bg-gray-50">{entry.date}</p>
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">Next Due</label>
-            <p className="px-3 py-2 rounded-xl border bg-gray-50">2026-08-01</p>
+            <p className="px-3 py-2 rounded-xl border bg-gray-50">
+              {entry.note?.includes("Next due:") ? entry.note.replace("Next due: ", "") : "—"}
+            </p>
           </div>
         </div>
 
         <div>
           <label className="block text-sm text-gray-600 mb-1">Notes</label>
           <p className="px-3 py-2 rounded-xl border bg-gray-50">
-            Placeholder notes for this vaccine (UI only).
+            {entry.note || "No notes."}
           </p>
         </div>
       </div>
