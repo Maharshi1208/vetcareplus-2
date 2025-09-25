@@ -10,6 +10,7 @@ import {
 
 // ---------- helpers ----------
 const isAdmin = (req: AuthedRequest) => req.user?.role === 'ADMIN';
+const isVet   = (req: AuthedRequest) => req.user?.role === 'VET';
 
 function ensureIso(d: string) {
   const dt = new Date(d);
@@ -37,6 +38,34 @@ function sameLocalDay(a: Date, b: Date) {
 }
 function weekdayLocal(d: Date) { return d.getDay(); }              // 0..6
 function minutesOfDayLocal(d: Date) { return d.getHours() * 60 + d.getMinutes(); }
+
+/**
+ * Resolve the vetId that corresponds to the logged-in user.
+ * - Prefer Vet.userId == req.user.sub (if your schema has it)
+ * - Fallback: match Vet by email == req.user.email
+ */
+async function vetIdForReq(req: AuthedRequest): Promise<string | null> {
+  // Try by userId if your schema has that column
+  try {
+    const byUser = await prisma.vet.findUnique({
+      where: { userId: req.user!.sub as any }, // ignore if no field; wrapped in try
+      select: { id: true },
+    });
+    if (byUser?.id) return byUser.id;
+  } catch (_) {
+    // ignore if schema doesn't have userId
+  }
+
+  // Fallback by email
+  if (req.user?.email) {
+    const byEmail = await prisma.vet.findFirst({
+      where: { email: req.user.email },
+      select: { id: true },
+    });
+    if (byEmail?.id) return byEmail.id;
+  }
+  return null;
+}
 
 // within vet availability?
 async function withinAvailability(vetId: string, start: Date, end: Date) {
@@ -119,9 +148,22 @@ const statusSchema = z.object({
 router.get('/', authRequired, async (req: AuthedRequest, res) => {
   const { page, pageSize, status, from, to } = listQuerySchema.parse(req.query);
 
-  const where: any = isAdmin(req) ? {} : { pet: { ownerId: req.user!.sub } };
-  if (status) where.status = status;
+  // role-scoped where
+  const where: any = {};
+  if (isAdmin(req)) {
+    // no extra filter
+  } else if (isVet(req)) {
+    const vid = await vetIdForReq(req);
+    if (!vid) {
+      return res.status(403).json({ ok: false, error: "No vet profile linked to this user" });
+    }
+    where.vetId = vid;
+  } else {
+    // OWNER
+    where.pet = { ownerId: req.user!.sub };
+  }
 
+  if (status) where.status = status;
   if (from || to) {
     where.start = {};
     if (from) where.start.gte = parseDateOnly(from);
@@ -151,6 +193,39 @@ router.get('/', authRequired, async (req: AuthedRequest, res) => {
     hasNext: page < totalPages,
     appointments: items
   });
+});
+
+// GET /appointments/:id (scoped by role)
+router.get('/:id', authRequired, async (req: AuthedRequest, res) => {
+  const id = req.params.id;
+  const appt = await prisma.appointment.findUnique({
+    where: { id },
+    select: {
+      id: true, petId: true, vetId: true, start: true, end: true, status: true, reason: true, notes: true,
+      pet: { select: { ownerId: true, name: true } },
+      vet: { select: { name: true, specialty: true } },
+      createdAt: true, updatedAt: true,
+    }
+  });
+
+  if (!appt) return res.status(404).json({ ok: false, error: 'Not found' });
+
+  if (isAdmin(req)) {
+    return res.json({ ok: true, appointment: appt });
+  }
+
+  if (isVet(req)) {
+    const vid = await vetIdForReq(req);
+    if (!vid) return res.status(403).json({ ok: false, error: 'No vet profile linked to this user' });
+    if (appt.vetId !== vid) return res.status(403).json({ ok: false, error: 'Forbidden' });
+    return res.json({ ok: true, appointment: appt });
+  }
+
+  // OWNER
+  if (appt.pet?.ownerId !== req.user!.sub) {
+    return res.status(403).json({ ok: false, error: 'Forbidden' });
+  }
+  return res.json({ ok: true, appointment: appt });
 });
 
 // POST /appointments (book)
@@ -230,8 +305,19 @@ router.patch('/:id/reschedule', authRequired, async (req: AuthedRequest, res) =>
   if (appt.status !== 'BOOKED') {
     return res.status(400).json({ ok: false, error: 'Only BOOKED can be rescheduled' });
   }
-  if (!isAdmin(req) && appt.pet.ownerId !== req.user!.sub) {
-    return res.status(403).json({ ok: false, error: 'Forbidden' });
+
+  // role-based permission: admin OR vet for their own appt OR owner of the pet
+  if (!isAdmin(req)) {
+    if (isVet(req)) {
+      const vid = await vetIdForReq(req);
+      if (!vid || appt.vetId !== vid) {
+        return res.status(403).json({ ok: false, error: 'Forbidden' });
+      }
+    } else {
+      if (appt.pet.ownerId !== req.user!.sub) {
+        return res.status(403).json({ ok: false, error: 'Forbidden' });
+      }
+    }
   }
 
   let s: Date, e: Date;
@@ -269,7 +355,7 @@ router.patch('/:id/cancel', authRequired, async (req: AuthedRequest, res) => {
   const appt = await prisma.appointment.findUnique({
     where: { id: req.params.id },
     select: {
-      id: true, status: true, start: true,
+      id: true, status: true, start: true, vetId: true,
       pet: { select: { ownerId: true, name: true } },
       vet: { select: { name: true } },
     }
@@ -278,8 +364,19 @@ router.patch('/:id/cancel', authRequired, async (req: AuthedRequest, res) => {
   if (appt.status !== 'BOOKED') {
     return res.status(400).json({ ok: false, error: 'Only BOOKED can be cancelled' });
   }
-  if (!isAdmin(req) && appt.pet.ownerId !== req.user!.sub) {
-    return res.status(403).json({ ok: false, error: 'Forbidden' });
+
+  // role-based permission: admin OR vet for their own appt OR owner of the pet
+  if (!isAdmin(req)) {
+    if (isVet(req)) {
+      const vid = await vetIdForReq(req);
+      if (!vid || appt.vetId !== vid) {
+        return res.status(403).json({ ok: false, error: 'Forbidden' });
+      }
+    } else {
+      if (appt.pet.ownerId !== req.user!.sub) {
+        return res.status(403).json({ ok: false, error: 'Forbidden' });
+      }
+    }
   }
 
   const updated = await prisma.appointment.update({
@@ -381,9 +478,21 @@ router.post('/:id/status', authRequired, async (req: AuthedRequest, res) => {
     if (appt.status !== 'BOOKED') {
       return res.status(400).json({ ok: false, error: 'Only BOOKED can be cancelled' });
     }
-    if (!isAdmin(req) && appt.pet.ownerId !== req.user!.sub) {
-      return res.status(403).json({ ok: false, error: 'Forbidden' });
+
+    // allow admin, owning vet, or owner
+    if (!isAdmin(req)) {
+      if (isVet(req)) {
+        const vid = await vetIdForReq(req);
+        if (!vid || appt.vetId !== vid) {
+          return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+      } else {
+        if (appt.pet.ownerId !== req.user!.sub) {
+          return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+      }
     }
+
     const updated = await prisma.appointment.update({
       where: { id: appt.id },
       data: { status: 'CANCELLED' },

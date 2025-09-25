@@ -31,6 +31,8 @@ export default function RoleNav({ linkClassName }: { linkClassName?: LinkClass }
   const vetOnly = [
     { to: "/health", label: "Health" },
     { to: "/reports", label: "Reports" }, // if vets should see reports
+    { to: "/appointments", label: "Appointments" },
+
   ];
   const adminOnly = [
     { to: "/vets", label: "Vets" },
