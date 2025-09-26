@@ -19,8 +19,9 @@ import authRoutes from './auth/routes.js';
 import swaggerUi from 'swagger-ui-express';
 import { getSpec } from './docs/openapi.js';
 import notifyRoutes from './notify/notify.routes.js';
+import metricsRoutes from './metrics/routes.js'; // ← add ".js"
 
-// ⬇️ NEW: RBAC middleware imports (non-breaking)
+// RBAC middleware
 import { authRequired, requireRole } from './middleware/auth.js';
 import type { AuthedRequest } from './middleware/auth.js';
 
@@ -28,7 +29,6 @@ const app = express();
 
 /** OpenAPI JSON + Swagger UI */
 app.get('/docs/openapi.json', (_req, res) => {
-  // getSpec currently takes no parameters in your repo
   res.json(getSpec());
 });
 app.use(
@@ -65,7 +65,7 @@ app.get('/health/db', async (_req, res) => {
   }
 });
 
-/** ⬇️ NEW: Dev-only sanity endpoints (safe; don’t affect existing routes) */
+/** Dev-only sanity endpoints */
 if (env.NODE_ENV !== 'production') {
   app.get('/whoami', authRequired, (req, res) => {
     const user = (req as AuthedRequest).user;
@@ -86,6 +86,7 @@ app.use('/appointments', apptRoutes);
 app.use('/pay', payRoutes);
 app.use('/reports', reportRoutes);
 app.use('/notify', notifyRoutes);
+app.use('/metrics', metricsRoutes); // ← mounted before 404
 
 /** 404 + error handler */
 app.use((_req, res) => res.status(404).json({ ok: false, error: 'Not found' }));
