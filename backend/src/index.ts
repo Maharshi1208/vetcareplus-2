@@ -18,6 +18,7 @@ import adminRoutes from './admin/routes.js';
 import authRoutes from './auth/routes.js';
 import swaggerUi from 'swagger-ui-express';
 import { getSpec } from './docs/openapi.js';
+import notifyRoutes from './notify/notify.routes.js';
 
 // ⬇️ NEW: RBAC middleware imports (non-breaking)
 import { authRequired, requireRole } from './middleware/auth.js';
@@ -84,6 +85,7 @@ app.use('/vets', vetRoutes);
 app.use('/appointments', apptRoutes);
 app.use('/pay', payRoutes);
 app.use('/reports', reportRoutes);
+app.use('/notify', notifyRoutes);
 
 /** 404 + error handler */
 app.use((_req, res) => res.status(404).json({ ok: false, error: 'Not found' }));
