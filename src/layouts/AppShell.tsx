@@ -1,73 +1,113 @@
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
-import RoleNav from "../components/RoleNav";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import logo from "../assets/logofinal.png";
+import { motion } from "framer-motion";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { role, logout } = useAuth();
 
+  const navItems = [
+    { name: "Dashboard", path: "/dashboard" },
+    { name: "Pets", path: "/pets" },
+    { name: "Vets", path: "/vets" },
+    { name: "Owners", path: "/owners" },
+    { name: "Appointments", path: "/appointments" },
+    { name: "Invoices", path: "/invoices" },
+    { name: "Health", path: "/health" },
+    { name: "Reports", path: "/reports" },
+    { name: "Settings", path: "/settings" },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-accent-300 to-brand-200 bg-fixed text-gray-900 flex">
+    <div className="min-h-screen bg-gray-50 text-gray-900 flex">
       {/* Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col border-r bg-white/90 backdrop-blur-sm">
-        <div className="h-16 flex items-center gap-2 px-4 border-b">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-accent-500 to-brand-500 grid place-items-center text-white font-bold">V</div>
-          <Link to="/dashboard" className="text-lg font-semibold">VetCare+</Link>
+      <aside className="hidden md:flex w-64 flex-col border-r bg-white/80 backdrop-blur-md">
+        {/* Logo */}
+        <div className="h-20 flex items-center px-4 border-b">
+          <img
+            src={logo}
+            alt="VetCare+"
+            className="h-38 w-auto object-contain"
+          />
         </div>
 
-        <nav className="p-3 space-y-1">
-          {/* Role-aware links with your exact classes */}
-          <RoleNav
-            linkClassName={({ isActive }) =>
-              [
-                "flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition",
-                isActive
-                  ? "bg-white border border-accent-200 text-accent-700 shadow"
-                  : "text-gray-700 hover:bg-white/70",
-              ].join(" ")
-            }
-          />
+        {/* Navigation */}
+        <nav className="p-4 space-y-2 relative">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.name}
+              to={item.path}
+              className={({ isActive }) =>
+                [
+                  "relative flex items-center px-4 py-2 rounded-lg font-medium transition-colors duration-200",
+                  isActive
+                    ? "text-white"
+                    : "text-gray-700 hover:text-gray-900",
+                ].join(" ")
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {/* Active Gradient Background */}
+                  {isActive && (
+                    <motion.span
+                      layoutId="activeBackground"
+                      className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 shadow-md"
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    />
+                  )}
+
+                  {/* Hover Glow Effect */}
+                  {!isActive && (
+                    <motion.span
+                      whileHover={{ scale: 1.03, backgroundColor: "rgba(0, 150, 255, 0.1)" }}
+                      className="absolute inset-0 rounded-lg"
+                    />
+                  )}
+
+                  {/* Label */}
+                  <span className="relative">{item.name}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
         </nav>
       </aside>
 
       {/* Main column */}
       <div className="flex-1 flex flex-col">
         {/* Topbar */}
-        <header className="h-16 bg-white/90 backdrop-blur-sm border-b flex items-center justify-between px-4">
+        <header className="h-16 bg-white/80 backdrop-blur-md border-b flex items-center justify-between px-4">
           {/* Search (left) */}
           <div className="relative flex-1 max-w-xl">
             <input
               placeholder="Search…"
-              className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent-500/30"
+              className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/30"
             />
           </div>
 
           {/* Right side */}
           <div className="ml-4 flex items-center gap-4">
-            {/* Logout + role badge */}
             <button
               type="button"
-              onClick={() => { logout(); navigate("/login"); }}
-              className="text-sm font-medium text-accent-700 hover:text-accent-900"
+              onClick={() => {
+                logout();
+                navigate("/login");
+              }}
+              className="text-sm font-medium text-blue-700 hover:text-blue-900"
             >
               Logout
             </button>
             <span className="text-xs text-gray-600 border px-2 py-1 rounded-lg">
               {role ?? "—"}
             </span>
-
-            {/* Existing avatar */}
-            <div className="h-8 w-8 rounded-full bg-gradient-to-r from-accent-500 to-brand-500 text-white grid place-items-center text-xs font-bold">
-              SR
-            </div>
           </div>
         </header>
 
         {/* Page content */}
-        <main className="p-4 md:p-6">
-          {children}
-        </main>
+        <main className="p-4 md:p-6">{children}</main>
       </div>
     </div>
   );
