@@ -8,6 +8,7 @@ import Input from "../components/ui/Input";
 import PasswordInput from "../components/ui/PasswordInput";
 import Button from "../components/ui/Button";
 import { useAuth } from "../context/AuthContext"; // ⬅️ NEW
+import logo from "../assets/logofinal.png"; // ✅ Import logo
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -60,11 +61,16 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-500 to-emerald-500 grid place-items-center px-4">
       <div className="w-full max-w-md rounded-2xl border border-white/40 bg-white/85 backdrop-blur-sm shadow-soft p-6">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-2 h-10 w-10 rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 grid place-items-center text-white font-bold">
-            V
+        <div className="mb-2 text-center">
+          {/* ✅ Replaced V with logo */}
+          <div className="flex justify-center mb-1">
+            <img
+              src={logo}
+              alt="VetCare+"
+              className="h-58 w-auto object-contain"
+            />
           </div>
-        <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
           <p className="text-gray-600 text-sm">Welcome back to VetCare+</p>
         </div>
 
