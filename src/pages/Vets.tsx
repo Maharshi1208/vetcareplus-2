@@ -1,3 +1,4 @@
+// src/pages/VetsPage.tsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { listVets, deleteVet } from "../services/vets";
@@ -107,7 +108,7 @@ export default function VetsPage() {
           </span>
           <Link
             to="/vets/add"
-            className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm hover:bg-blue-700"
+            className="inline-flex items-center rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-white shadow hover:opacity-90 transition"
           >
             <span className="mr-2 text-lg leading-none">＋</span>
             Add Vet
@@ -185,13 +186,13 @@ export default function VetsPage() {
                         <div className="flex justify-end gap-2">
                           <Link
                             to={`/vets/${v.id}`}
-                            className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
+                            className="rounded-lg bg-gradient-to-r from-sky-500 to-emerald-500 px-3 py-1 text-sm text-white shadow hover:opacity-90 transition"
                           >
                             View
                           </Link>
                           <Link
                             to={`/vets/${v.id}/edit`}
-                            className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+                            className="rounded-lg bg-gradient-to-r from-sky-500 to-emerald-500 px-3 py-1 text-sm text-white shadow hover:opacity-90 transition"
                           >
                             Edit
                           </Link>

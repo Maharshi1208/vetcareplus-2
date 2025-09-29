@@ -1,4 +1,5 @@
 // src/pages/Dashboard.tsx
+// src/pages/Dashboard.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import StatCard from "../components/dashboard/StatCard";
 import RecentActivity from "../components/dashboard/RecentActivity";
@@ -191,7 +192,7 @@ export default function Dashboard() {
           </div>
           <button
             onClick={exportCSV}
-            className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-50"
+            className="rounded-xl bg-gradient-to-r from-blue-700 to-teal-700 px-4 py-2 text-sm text-white shadow-sm hover:opacity-90 disabled:opacity-60"
             title="Download CSV"
             disabled={schedLoading || schedule.length === 0}
           >

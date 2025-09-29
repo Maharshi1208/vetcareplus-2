@@ -50,12 +50,20 @@ const MOCK_ENTRIES: HealthEntry[] = [
 
 function typeBadge(t: EntryType) {
   const map = {
-    vaccine: { label: "Vaccine", cls: "border-emerald-200 bg-emerald-50 text-emerald-700" },
-    med: { label: "Medication", cls: "border-amber-200 bg-amber-50 text-amber-700" },
+    vaccine: {
+      label: "Vaccine",
+      cls: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    },
+    med: {
+      label: "Medication",
+      cls: "border-amber-200 bg-amber-50 text-amber-700",
+    },
   } as const;
   const x = map[t];
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${x.cls}`}>
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${x.cls}`}
+    >
       {x.label}
     </span>
   );
@@ -70,7 +78,9 @@ export default function HealthPage() {
 
   useEffect(() => {
     const s = (location.state as any)?.flash as FlashState | undefined;
-    const newEntry = (location.state as any)?.newEntry as HealthEntry | undefined;
+    const newEntry = (location.state as any)?.newEntry as
+      | HealthEntry
+      | undefined;
 
     if (s) setFlash(s);
 
@@ -78,10 +88,8 @@ export default function HealthPage() {
       setEntries((prev) => {
         const exists = prev.find((e) => e.id === newEntry.id);
         if (exists) {
-          // ✅ Update existing entry
           return prev.map((e) => (e.id === newEntry.id ? newEntry : e));
         } else {
-          // ✅ Add new entry
           return [newEntry, ...prev];
         }
       });
@@ -92,7 +100,6 @@ export default function HealthPage() {
     }
   }, [location, navigate]);
 
-  // filters
   const [q, setQ] = useState("");
   const [typeFilter, setTypeFilter] = useState<"" | EntryType>("");
 
@@ -115,19 +122,23 @@ export default function HealthPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Health Records</h1>
-          <p className="text-sm text-gray-500">Vaccinations and medications (UI-only).</p>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Health Records
+          </h1>
+          <p className="text-sm text-gray-500">
+            Vaccinations and medications (UI-only).
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
             to="/health/add-medication"
-            className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-50"
+            className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-sm text-white shadow-sm hover:opacity-90"
           >
             Add Medication
           </Link>
           <Link
             to="/health/add-vaccine"
-            className="rounded-xl bg-blue-600 px-3 py-2 text-sm text-white shadow-sm hover:bg-blue-700"
+            className="rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-2 text-sm text-white shadow-sm hover:opacity-90"
           >
             Add Vaccine
           </Link>
@@ -163,7 +174,9 @@ export default function HealthPage() {
             <div className="flex items-center gap-2">
               <select
                 value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as "" | EntryType)}
+                onChange={(e) =>
+                  setTypeFilter(e.target.value as "" | EntryType)
+                }
                 className="rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
               >
                 <option value="">All types</option>
@@ -177,7 +190,9 @@ export default function HealthPage() {
         {/* List */}
         <div className="p-4 sm:p-6">
           {filtered.length === 0 ? (
-            <div className="text-sm text-gray-600">No health records match your filter.</div>
+            <div className="text-sm text-gray-600">
+              No health records match your filter.
+            </div>
           ) : (
             <ul className="space-y-3">
               {filtered.map((e) => (
@@ -194,21 +209,23 @@ export default function HealthPage() {
                       <span className="font-medium">{e.pet}</span> • {e.owner}
                       {e.vet ? <> • {e.vet}</> : null} • {e.date}
                     </div>
-                    {e.note ? <div className="text-xs text-gray-600">{e.note}</div> : null}
+                    {e.note ? (
+                      <div className="text-xs text-gray-600">{e.note}</div>
+                    ) : null}
                   </div>
 
                   <div className="mt-3 flex items-center gap-2 sm:mt-0">
                     <Link
                       to={`/vaccines/${e.id}/view`}
                       state={{ entry: e }}
-                      className="rounded-lg border px-3 py-1 text-sm hover:bg-white"
+                      className="rounded-lg bg-gradient-to-r from-sky-500 to-emerald-500 px-3 py-1 text-sm text-white shadow-sm hover:opacity-90"
                     >
                       View
                     </Link>
                     <Link
                       to={`/vaccines/${e.id}/edit`}
                       state={{ entry: e }}
-                      className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+                      className="rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 px-3 py-1 text-sm text-white shadow-sm hover:opacity-90"
                     >
                       Edit
                     </Link>

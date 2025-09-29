@@ -127,7 +127,6 @@ export default function AppointmentsPage() {
   async function onToggleCancel(row: Appt) {
     if (busyId) return;
     if (row.status === "Completed") {
-      // optional UX: inform user completed items can't be changed
       return;
     }
 
@@ -137,18 +136,16 @@ export default function AppointmentsPage() {
     if (!window.confirm(confirmMsg)) return;
 
     setBusyId(row.id);
-    // optimistic update
     const prev = rows;
     setRows((r) =>
       r.map((x) => (x.id === row.id ? { ...x, status: toStatus === "CANCELLED" ? "Cancelled" : "Booked" } : x))
     );
     try {
       const updated = await updateAppointmentStatus(row.id, toStatus);
-      // sync actual from server
       setRows((r) => r.map((x) => (x.id === row.id ? rowFrom(updated) : x)));
     } catch (e: any) {
       console.error(e);
-      setRows(prev); // rollback
+      setRows(prev);
       const msg =
         e?.error || e?.message || e?.response?.data?.error || "Failed to update status. Please try again.";
       window.alert(msg);
@@ -169,10 +166,18 @@ export default function AppointmentsPage() {
           <span className="inline-flex items-center rounded-full border px-3 py-1 text-sm text-gray-700">
             Total: <span className="ml-1 font-semibold">{filtered.length}</span>
           </span>
-          <Link to="/appointments/calendar" className="rounded-xl border px-4 py-2 hover:bg-gray-50">
+          {/* Gradient Calendar button */}
+          <Link
+            to="/appointments/calendar"
+            className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-white shadow-sm hover:opacity-90"
+          >
             Calendar
           </Link>
-          <Link to="/appointments/add" className="rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+          {/* Gradient New Appointment button */}
+          <Link
+            to="/appointments/add"
+            className="rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-2 text-white shadow-sm hover:opacity-90"
+          >
             New Appointment
           </Link>
         </div>

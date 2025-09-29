@@ -105,10 +105,10 @@ export default function AddMedication() {
           type="button"
           onClick={handleSave}
           disabled={isDisabled}
-          className={`w-full px-4 py-2 rounded-xl text-white ${
+          className={`w-full px-4 py-2 rounded-xl text-white shadow-sm ${
             isDisabled
               ? "bg-gray-300 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
+              : "bg-gradient-to-r from-sky-500 to-emerald-500 hover:opacity-90"
           }`}
         >
           Save

@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import logo from "../assets/logofinal.png";
 import { motion } from "framer-motion";
+import ChatBot from "../components/ChatBot"; // ✅ Added import
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
@@ -109,6 +110,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {/* Page content */}
         <main className="p-4 md:p-6">{children}</main>
       </div>
+
+      {/* ✅ Global chatbot floating widget */}
+      <ChatBot />
     </div>
   );
 }

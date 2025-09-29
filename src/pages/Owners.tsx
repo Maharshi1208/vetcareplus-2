@@ -144,13 +144,13 @@ export default function OwnersPage() {
                           <div className="flex justify-end gap-2">
                             <Link
                               to={`/owners/${o.id}`}
-                              className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
+                              className="rounded-lg bg-gradient-to-r from-sky-500 to-emerald-500 px-3 py-1 text-sm text-white shadow-sm hover:opacity-90"
                             >
                               View
                             </Link>
                             <Link
                               to={`/owners/${o.id}/edit`}
-                              className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+                              className="rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 px-3 py-1 text-sm text-white shadow-sm hover:opacity-90"
                             >
                               Edit
                             </Link>

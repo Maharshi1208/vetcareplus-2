@@ -1,3 +1,4 @@
+// src/pages/PetsPage.tsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import React, { useMemo, useState, useEffect } from "react";
 import { usePets } from "../context/PetsContext";
@@ -80,7 +81,7 @@ export default function PetsPage() {
           </span>
           <Link
             to="/pets/add"
-            className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm hover:bg-blue-700"
+            className="inline-flex items-center rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-white shadow hover:opacity-90 transition"
           >
             <span className="mr-2 text-lg leading-none">＋</span>
             Add Pet
@@ -122,7 +123,7 @@ export default function PetsPage() {
               <p className="text-gray-600">No pets found.</p>
               <Link
                 to="/pets/add"
-                className="mt-4 inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm hover:bg-blue-700"
+                className="mt-4 inline-flex items-center rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-white shadow hover:opacity-90 transition"
               >
                 Add your first pet
               </Link>
@@ -152,13 +153,13 @@ export default function PetsPage() {
                       <div className="flex items-center gap-2">
                         <Link
                           to={`/pets/${p.id}`}
-                          className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
+                          className="rounded-lg bg-gradient-to-r from-sky-500 to-emerald-500 px-3 py-1 text-sm text-white shadow hover:opacity-90 transition"
                         >
                           View
                         </Link>
                         <Link
                           to={`/pets/${p.id}/edit`}
-                          className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+                          className="rounded-lg bg-gradient-to-r from-sky-500 to-emerald-500 px-3 py-1 text-sm text-white shadow hover:opacity-90 transition"
                         >
                           Edit
                         </Link>
@@ -175,6 +176,7 @@ export default function PetsPage() {
                       </div>
                     </div>
 
+                    {/* Details grid stays unchanged */}
                     <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                       <div className="rounded-lg bg-gray-50 px-3 py-2">
                         <div className="text-gray-500">Age</div>
@@ -293,13 +295,13 @@ export default function PetsPage() {
                             <div className="flex justify-end gap-2">
                               <Link
                                 to={`/pets/${p.id}`}
-                                className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
+                                className="rounded-lg bg-gradient-to-r from-sky-500 to-emerald-500 px-3 py-1 text-sm text-white shadow hover:opacity-90 transition"
                               >
                                 View
                               </Link>
                               <Link
                                 to={`/pets/${p.id}/edit`}
-                                className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+                                className="rounded-lg bg-gradient-to-r from-sky-500 to-emerald-500 px-3 py-1 text-sm text-white shadow hover:opacity-90 transition"
                               >
                                 Edit
                               </Link>

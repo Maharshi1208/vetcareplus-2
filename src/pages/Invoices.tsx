@@ -1,3 +1,4 @@
+// src/pages/Invoices.tsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import React, { useMemo, useState, useEffect } from "react";
 
@@ -108,7 +109,7 @@ export default function InvoicesPage() {
           </span>
           <Link
             to="/invoices/add"
-            className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm hover:bg-blue-700"
+            className="inline-flex items-center rounded-xl bg-gradient-to-r from-sky-600 to-emerald-600 px-4 py-2 text-white shadow-sm hover:from-sky-700 hover:to-emerald-700"
           >
             <span className="mr-2 text-lg leading-none">＋</span>
             Add Invoice
@@ -188,13 +189,13 @@ export default function InvoicesPage() {
                           <div className="flex justify-end gap-2">
                             <Link
                               to={`/invoices/${i.id}`}
-                              className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
+                              className="rounded-lg bg-gradient-to-r from-sky-600 to-emerald-600 px-3 py-1 text-sm text-white hover:from-sky-700 hover:to-emerald-700"
                             >
                               View
                             </Link>
                             <Link
                               to={`/invoices/${i.id}/edit`}
-                              className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+                              className="rounded-lg bg-gradient-to-r from-sky-600 to-emerald-600 px-3 py-1 text-sm text-white hover:from-sky-700 hover:to-emerald-700"
                             >
                               Edit
                             </Link>

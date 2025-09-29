@@ -65,7 +65,7 @@ export default function SettingsPage() {
           <div className="pt-2">
             <button
               type="submit"
-              className="rounded-xl bg-blue-600 px-5 py-2 text-white shadow-sm hover:bg-blue-700"
+              className="w-full sm:w-auto rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-5 py-2 text-white shadow-sm hover:opacity-90"
             >
               Save Profile
             </button>
@@ -100,7 +100,7 @@ export default function SettingsPage() {
           <div className="pt-2">
             <button
               type="submit"
-              className="rounded-xl bg-blue-600 px-5 py-2 text-white shadow-sm hover:bg-blue-700"
+              className="w-full sm:w-auto rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-5 py-2 text-white shadow-sm hover:opacity-90"
             >
               Save Preferences
             </button>
@@ -118,8 +118,12 @@ export default function SettingsPage() {
             Placeholder for data export/import, account deletion, etc. (UI-only).
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button className="rounded-xl border px-4 py-2 hover:bg-gray-50">Export data (UI-only)</button>
-            <button className="rounded-xl border px-4 py-2 hover:bg-gray-50">Import data (UI-only)</button>
+            <button className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-white shadow-sm hover:opacity-90">
+              Export data (UI-only)
+            </button>
+            <button className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-white shadow-sm hover:opacity-90">
+              Import data (UI-only)
+            </button>
             <button className="rounded-xl border px-4 py-2 text-rose-700 hover:bg-rose-50">
               Delete account (disabled)
             </button>

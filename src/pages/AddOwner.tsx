@@ -132,7 +132,10 @@ export default function AddOwnerPage() {
             <button type="button" onClick={onReset} className="rounded-xl border px-4 py-2">
               Reset
             </button>
-            <button type="submit" className="rounded-xl bg-blue-600 px-5 py-2 text-white shadow-sm hover:bg-blue-700">
+            <button
+              type="submit"
+              className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-5 py-2 text-white shadow hover:opacity-90 transition"
+            >
               Save Owner
             </button>
           </div>
