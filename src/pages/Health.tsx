@@ -1,5 +1,7 @@
+// src/pages/Health.tsx
 import React, { useMemo, useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { fetchOwnerPets, type PetOption } from "../services/dropdowns";
 
 type FlashState = { type: "success" | "error" | "info"; message: string };
 type EntryType = "vaccine" | "med";
@@ -100,8 +102,22 @@ export default function HealthPage() {
     }
   }, [location, navigate]);
 
+  // --- Filters ---
   const [q, setQ] = useState("");
   const [typeFilter, setTypeFilter] = useState<"" | EntryType>("");
+  const [pets, setPets] = useState<PetOption[]>([]);
+  const [petFilter, setPetFilter] = useState<string>("");
+
+  // Load current owner's pets for the dropdown (array: [{id,name,ownerId}])
+  useEffect(() => {
+    fetchOwnerPets("me").then(setPets).catch(console.error);
+  }, []);
+
+  // Map selected petId to its name (entries store pet names)
+  const selectedPetName = useMemo(
+    () => pets.find((p) => p.id === petFilter)?.name ?? "",
+    [petFilter, pets]
+  );
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -113,9 +129,11 @@ export default function HealthPage() {
           .toLowerCase()
           .includes(s);
       const matchesType = !typeFilter || e.type === typeFilter;
-      return matchesText && matchesType;
+      const matchesPet =
+        !petFilter || (selectedPetName && e.pet.toLowerCase() === selectedPetName.toLowerCase());
+      return matchesText && matchesType && matchesPet;
     });
-  }, [q, typeFilter, entries]);
+  }, [q, typeFilter, petFilter, selectedPetName, entries]);
 
   return (
     <div className="p-6 space-y-6">
@@ -172,6 +190,20 @@ export default function HealthPage() {
               className="w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400 sm:max-w-md"
             />
             <div className="flex items-center gap-2">
+              {/* NEW: Pet filter (keeps layout; sits next to Type) */}
+              <select
+                value={petFilter}
+                onChange={(e) => setPetFilter(e.target.value)}
+                className="rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+              >
+                <option value="">All pets</option>
+                {pets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+
               <select
                 value={typeFilter}
                 onChange={(e) =>

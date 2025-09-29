@@ -1,8 +1,8 @@
 // src/auth/mw.ts
-import type { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
 
-type Role = 'ADMIN' | 'OWNER' | 'VET';
+export type Role = 'ADMIN' | 'OWNER' | 'VET';
 
 interface JwtClaims {
   sub: string;        // user id
@@ -43,3 +43,21 @@ export function authMiddleware(allowed: Role[] = ['ADMIN','OWNER','VET']) {
     }
   };
 }
+
+// --- Helpers (non-breaking) ---
+
+// Any authenticated user
+export const requireAuth: RequestHandler = authMiddleware(['ADMIN','OWNER','VET']);
+
+// Only specified roles
+export const requireRole = (...roles: Role[]): RequestHandler => authMiddleware(roles);
+
+// Allow if resource owner === current user OR user has one of the roles
+export const requireSelfOrRole =
+  (getOwnerId: (req: Request) => string | undefined, ...roles: Role[]): RequestHandler =>
+  (req, res, next) => {
+    if (!req.user) return res.status(401).json({ ok: false, error: 'Unauthenticated' });
+    const isSelf = getOwnerId(req) === req.user.id;
+    if (isSelf || roles.includes(req.user.role)) return next();
+    return res.status(403).json({ ok: false, error: 'Forbidden' });
+  };

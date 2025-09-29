@@ -12,6 +12,23 @@ export function getAccessToken(): string | null {
   return null;
 }
 
+// NEW: set/clear the primary token key ("access") without changing old readers
+export function setAccessToken(token: string | null) {
+  if (token) localStorage.setItem("access", token);
+  else localStorage.removeItem("access");
+}
+
+// NEW: convenience to pull token from common auth payload shapes
+export function setTokenFromAuthPayload(payload: any): string | null {
+  const t =
+    payload?.tokens?.access ??
+    payload?.accessToken ??
+    payload?.token ??
+    null;
+  setAccessToken(t ?? null);
+  return t ?? null;
+}
+
 export function clearTokens() {
   for (const k of TOKEN_KEYS) localStorage.removeItem(k);
 }
@@ -47,17 +64,23 @@ async function request<T>(
   const url = `${API_URL}${path}`;
   const isForm = typeof FormData !== "undefined" && body instanceof FormData;
 
-  const res = await fetch(url, {
-    method,
-    headers: {
-      ...(isForm ? {} : { "Content-Type": "application/json" }),
-      ...authHeaders(),
-      ...extraHeaders,
-    },
-    body: body == null ? undefined : (isForm ? (body as any) : JSON.stringify(body)),
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        ...(isForm ? {} : { "Content-Type": "application/json" }),
+        ...authHeaders(),
+        ...extraHeaders,
+      },
+      body: body == null ? undefined : (isForm ? (body as any) : JSON.stringify(body)),
+    });
+  } catch (e: any) {
+    // Network/connection error
+    throw new ApiError(0, null, e?.message || "Network error");
+  }
 
-  // Try to parse JSON (don’t explode on non-JSON)
+  // Try to parse JSON (won’t explode on non-JSON or empty body)
   let data: any = null;
   const text = await res.text().catch(() => "");
   if (text) {

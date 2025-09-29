@@ -7,6 +7,17 @@ import { hhmmToMinutes } from '../lib/time.js';
 const router = Router();
 const adminOnly = [authRequired, requireRole('ADMIN')] as const;
 
+// ---- NEW: Public (auth) dropdown endpoint (ARRAY shape) ----
+router.get('/select', authRequired, async (_req, res) => {
+  const vets = await prisma.vet.findMany({
+    where: { active: true },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+  res.setHeader('X-Total-Count', String(vets.length));
+  return res.json(vets); // e.g., [{ id, name }]
+});
+
 // ---- Schemas ----
 const vetCreateSchema = z.object({
   name: z.string().min(1),

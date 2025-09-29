@@ -44,19 +44,12 @@ function minutesOfDayLocal(d: Date) { return d.getHours() * 60 + d.getMinutes();
  * - Prefer Vet.userId == req.user.sub (if your schema has it)
  * - Fallback: match Vet by email == req.user.email
  */
+/**
+ * Resolve the vetId that corresponds to the logged-in user.
+ * Tries email first (safe), then userId if your schema has it.
+ */
 async function vetIdForReq(req: AuthedRequest): Promise<string | null> {
-  // Try by userId if your schema has that column
-  try {
-    const byUser = await prisma.vet.findUnique({
-      where: { userId: req.user!.sub as any }, // ignore if no field; wrapped in try
-      select: { id: true },
-    });
-    if (byUser?.id) return byUser.id;
-  } catch (_) {
-    // ignore if schema doesn't have userId
-  }
-
-  // Fallback by email
+  // 1) Try by email (works even if Vet has no userId column)
   if (req.user?.email) {
     const byEmail = await prisma.vet.findFirst({
       where: { email: req.user.email },
@@ -64,9 +57,21 @@ async function vetIdForReq(req: AuthedRequest): Promise<string | null> {
     });
     if (byEmail?.id) return byEmail.id;
   }
+
+  // 2) Optional: try by userId if your Vet model has that column
+  // Use findFirst + a typed escape to avoid TS error when 'userId' isn't in the model
+  try {
+    const byUser = await prisma.vet.findFirst({
+      where: { userId: req.user!.sub } as any,
+      select: { id: true },
+    });
+    if (byUser?.id) return byUser.id;
+  } catch {
+    // ignore if schema doesn't have userId
+  }
+
   return null;
 }
-
 // within vet availability?
 async function withinAvailability(vetId: string, start: Date, end: Date) {
   if (!sameLocalDay(start, end)) return false; // simple rule for now

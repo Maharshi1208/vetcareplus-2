@@ -7,21 +7,23 @@ import { Link, useNavigate } from "react-router-dom";
 import Input from "../components/ui/Input";
 import PasswordInput from "../components/ui/PasswordInput";
 import Button from "../components/ui/Button";
-import { useAuth } from "../context/AuthContext"; // ⬅️ NEW
-import logo from "../assets/logofinal.png"; // ✅ Import logo
+import { useAuth } from "../context/AuthContext";
+import logo from "../assets/logofinal.png";
+
+// NEW: use your API helpers so token storage is centralized
+import { apiPost, setTokenFromAuthPayload } from "../services/api";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
-
 type FormData = z.infer<typeof schema>;
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000"; // ⬅️ NEW
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth(); // ⬅️ NEW
+  const { login } = useAuth();
 
   const {
     register,
@@ -34,27 +36,20 @@ export default function Login() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      const res = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      // Use apiPost to keep error handling consistent
+      const resp = await apiPost<any>("/auth/login", data);
 
-      const body = await res.json();
+      // Store token in localStorage under "access" (helper supports multiple shapes)
+      const token = setTokenFromAuthPayload(resp);
+      if (!token) throw new Error("Missing access token in response");
 
-      if (!res.ok) {
-        throw new Error(body?.error || "Login failed");
-      }
+      // Keep your existing app logic: tell AuthContext we’re logged in
+      await login(token);
 
-      // ✅ token is at body.tokens.access — store via AuthContext
-      if (body?.tokens?.access) {
-        await login(body.tokens.access); // sets localStorage 'access' + role in context
-        navigate("/dashboard");
-      } else {
-        throw new Error("Missing access token in response");
-      }
+      navigate("/dashboard");
     } catch (err: any) {
-      alert(err.message || "Login failed");
+      // apiPost already gives friendly messages via ApiError
+      alert(err?.message || "Login failed");
     }
   };
 
@@ -62,7 +57,6 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-sky-500 to-emerald-500 grid place-items-center px-4">
       <div className="w-full max-w-md rounded-2xl border border-white/40 bg-white/85 backdrop-blur-sm shadow-soft p-6">
         <div className="mb-2 text-center">
-          {/* ✅ Replaced V with logo */}
           <div className="flex justify-center mb-1">
             <img
               src={logo}

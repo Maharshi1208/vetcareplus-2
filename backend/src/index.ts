@@ -19,9 +19,10 @@ import authRoutes from './auth/routes.js';
 import swaggerUi from 'swagger-ui-express';
 import { getSpec } from './docs/openapi.js';
 import notifyRoutes from './notify/notify.routes.js';
-import metricsRoutes from './metrics/routes.js'; // ← add ".js"
+import metricsRoutes from './metrics/routes.js';
+import ownersRoutes from './owner/routes.js';
 
-// RBAC middleware
+// RBAC helpers only used inside specific routes (not globally here)
 import { authRequired, requireRole } from './middleware/auth.js';
 import type { AuthedRequest } from './middleware/auth.js';
 
@@ -77,16 +78,21 @@ if (env.NODE_ENV !== 'production') {
   });
 }
 
-/** Routes */
+/**
+ * ROUTES
+ * Keep /auth PUBLIC (no authRequired here). All other routers do their own per-route guards.
+ */
 app.use('/auth', authRoutes);
+
 app.use('/admin', adminRoutes);
+app.use('/owners', ownersRoutes);
 app.use('/pets', petRoutes);
 app.use('/vets', vetRoutes);
 app.use('/appointments', apptRoutes);
 app.use('/pay', payRoutes);
 app.use('/reports', reportRoutes);
 app.use('/notify', notifyRoutes);
-app.use('/metrics', metricsRoutes); // ← mounted before 404
+app.use('/metrics', metricsRoutes);
 
 /** 404 + error handler */
 app.use((_req, res) => res.status(404).json({ ok: false, error: 'Not found' }));

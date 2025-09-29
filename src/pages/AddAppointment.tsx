@@ -1,34 +1,33 @@
-import React, { useMemo, useState } from "react";
+// src/pages/AddAppointment.tsx
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import {
+  fetchVets,
+  fetchOwners,
+  fetchOwnerPets,
+  type VetOption,
+  type OwnerOption,
+  type PetOption,
+} from "../services/dropdowns";
 
 type ApptStatus = "Booked" | "Rescheduled" | "Cancelled" | "Completed";
 
-const PETS = [
-  { id: "p1", name: "Buddy (Dog)" },
-  { id: "p2", name: "Misty (Cat)" },
-  { id: "p3", name: "Kiwi (Bird)" },
-];
-
-const OWNERS = [
-  { id: "o1", name: "Alice Johnson" },
-  { id: "o2", name: "Bob Patel" },
-];
-
-const VETS = [
-  { id: "v1", name: "Dr. Anna Smith" },
-  { id: "v2", name: "Dr. Brian Lee" },
-  { id: "v3", name: "Dr. Carla Gomez" },
-];
-
 export default function AddAppointmentPage() {
   const navigate = useNavigate();
+  const { user } = useAuth(); // expects { role: 'OWNER' | 'ADMIN' | 'VET', ... }
+
+  // --- real data (was mock arrays) ---
+  const [vets, setVets] = useState<VetOption[]>([]);
+  const [owners, setOwners] = useState<OwnerOption[]>([]);
+  const [pets, setPets] = useState<PetOption[]>([]);
 
   const [form, setForm] = useState({
     date: "",
     start: "",
     end: "",
     petId: "",
-    ownerId: "",
+    ownerId: "", // 'me' for OWNER users
     vetId: "",
     reason: "",
     status: "Booked" as ApptStatus,
@@ -40,6 +39,44 @@ export default function AddAppointmentPage() {
   function set<K extends keyof typeof form>(k: K, v: any) {
     setForm((f) => ({ ...f, [k]: v }));
   }
+
+  // Load vets once
+  useEffect(() => {
+    fetchVets().then(setVets).catch(console.error);
+  }, []);
+
+  // Load owners depending on role: OWNER -> fixed "me"; ADMIN/VET -> fetch list
+  useEffect(() => {
+    if (user?.role === "OWNER") {
+      // keep design (select remains), but prefill and lock to "me"
+      setOwners([{ id: "me", name: "Me", email: "" } as OwnerOption]);
+      setForm((f) => (f.ownerId ? f : { ...f, ownerId: "me" }));
+    } else {
+      fetchOwners()
+        .then(setOwners)
+        .catch(console.error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role]);
+
+  // Load pets whenever ownerId changes (ownerId can be 'me' or a UUID)
+  useEffect(() => {
+    if (!form.ownerId) {
+      setPets([]);
+      setForm((f) => ({ ...f, petId: "" }));
+      return;
+    }
+    fetchOwnerPets(form.ownerId)
+      .then((items) => {
+        setPets(items);
+        // if current petId no longer valid, clear it
+        if (items.every((p) => p.id !== form.petId)) {
+          setForm((f) => ({ ...f, petId: "" }));
+        }
+      })
+      .catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.ownerId]);
 
   const canSubmit = useMemo(() => {
     return (
@@ -92,7 +129,7 @@ export default function AddAppointmentPage() {
       start: "",
       end: "",
       petId: "",
-      ownerId: "",
+      ownerId: user?.role === "OWNER" ? "me" : "",
       vetId: "",
       reason: "",
       status: "Booked",
@@ -100,6 +137,8 @@ export default function AddAppointmentPage() {
     });
     setErrors({});
   }
+
+  const ownerSelectDisabled = user?.role === "OWNER";
 
   return (
     <div className="p-6">
@@ -166,7 +205,7 @@ export default function AddAppointmentPage() {
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                 >
                   <option value="">Select pet…</option>
-                  {PETS.map((p) => (
+                  {pets.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>
@@ -179,12 +218,15 @@ export default function AddAppointmentPage() {
                 <select
                   value={form.ownerId}
                   onChange={(e) => set("ownerId", e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                  disabled={ownerSelectDisabled}
+                  className={`mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400 ${
+                    ownerSelectDisabled ? "bg-gray-100 text-gray-500" : ""
+                  }`}
                 >
-                  <option value="">Select owner…</option>
-                  {OWNERS.map((o) => (
+                  <option value="">{ownerSelectDisabled ? "Me" : "Select owner…"}</option>
+                  {owners.map((o) => (
                     <option key={o.id} value={o.id}>
-                      {o.name}
+                      {o.name || o.email || o.id}
                     </option>
                   ))}
                 </select>
@@ -198,7 +240,7 @@ export default function AddAppointmentPage() {
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                 >
                   <option value="">Select vet…</option>
-                  {VETS.map((v) => (
+                  {vets.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.name}
                     </option>
@@ -226,11 +268,13 @@ export default function AddAppointmentPage() {
                   onChange={(e) => set("status", e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                 >
-                  {(["Booked", "Rescheduled", "Cancelled", "Completed"] as ApptStatus[]).map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
+                  {(["Booked", "Rescheduled", "Cancelled", "Completed"] as ApptStatus[]).map(
+                    (s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    )
+                  )}
                 </select>
               </div>
             </div>

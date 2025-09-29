@@ -1,24 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { fetchOwnersFull, type OwnerFull } from "../services/dropdowns";
 
 type FlashState = { type: "success" | "error" | "info"; message: string };
 
-type Owner = {
+type Row = {
   id: string;
   name: string;
-  email?: string;
-  phone?: string;
+  email: string;
+  phone: string;
   status: "Active" | "Inactive";
 };
 
-// UI-only seed data (safe to replace with real data later)
-const OWNERS: Owner[] = [
-  { id: "o1", name: "Alice Johnson",  email: "alice@vetcare.local",   phone: "555-2001", status: "Active" },
-  { id: "o2", name: "Bob Patel",      email: "bob@vetcare.local",     phone: "555-2002", status: "Active" },
-  { id: "o3", name: "Charlie Lee",    email: "charlie@vetcare.local", phone: "555-2003", status: "Inactive" },
-];
-
-function statusBadge(s: Owner["status"]) {
+function statusBadge(s: Row["status"]) {
   const cls =
     s === "Active"
       ? "border-green-200 bg-green-50 text-green-700"
@@ -31,9 +25,10 @@ function statusBadge(s: Owner["status"]) {
 }
 
 export default function OwnersPage() {
+  const [rows, setRows] = useState<Row[]>([]);
   const [q, setQ] = useState("");
 
-  // --- Flash banner (one-time) ---
+  // Flash banner (kept)
   const location = useLocation();
   const navigate = useNavigate();
   const [flash, setFlash] = useState<FlashState | null>(null);
@@ -42,21 +37,37 @@ export default function OwnersPage() {
     const s = (location.state as any)?.flash as FlashState | undefined;
     if (s) {
       setFlash(s);
-      // clear history state so it doesn't reappear on refresh/back
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location, navigate]);
 
+  // Load owners from backend
+  useEffect(() => {
+    (async () => {
+      try {
+        const owners = await fetchOwnersFull(); // array
+        const mapped: Row[] = owners.map((o) => ({
+          id: o.id,
+          name: (o.name ?? "").trim() || o.email,
+          email: o.email,
+          phone: (o.phone ?? "").trim() || "—",
+          status: o.suspended ? "Inactive" : "Active",
+        }));
+        setRows(mapped);
+      } catch (e) {
+        console.error("Failed to load owners:", e);
+        setRows([]);
+      }
+    })();
+  }, []);
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return OWNERS;
-    return OWNERS.filter((o) =>
-      [o.name, o.email ?? "", o.phone ?? "", o.status]
-        .join(" ")
-        .toLowerCase()
-        .includes(s)
+    if (!s) return rows;
+    return rows.filter((o) =>
+      [o.name, o.email, o.phone, o.status].join(" ").toLowerCase().includes(s)
     );
-  }, [q]);
+  }, [q, rows]);
 
   return (
     <div className="p-6">
@@ -64,11 +75,11 @@ export default function OwnersPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Owners</h1>
-          <p className="text-sm text-gray-500">Manage owner profiles (UI-only).</p>
+          <p className="text-sm text-gray-500">Manage owner profiles.</p>
         </div>
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center rounded-full border px-3 py-1 text-sm text-gray-700">
-            Total: <span className="ml-1 font-semibold">{OWNERS.length}</span>
+            Total: <span className="ml-1 font-semibold">{rows.length}</span>
           </span>
           <Link
             to="/owners/add"
@@ -96,7 +107,7 @@ export default function OwnersPage() {
         </div>
       )}
 
-      {/* Search */}
+      {/* Search & table */}
       <div className="mt-5">
         <div className="rounded-2xl border bg-white shadow-sm">
           <div className="border-b p-4">
@@ -108,7 +119,6 @@ export default function OwnersPage() {
             />
           </div>
 
-          {/* Content */}
           {filtered.length === 0 ? (
             <div className="p-10 text-center">
               <p className="text-gray-600">No owners found.</p>
@@ -121,7 +131,6 @@ export default function OwnersPage() {
             </div>
           ) : (
             <div className="p-2 sm:p-4">
-              {/* DESKTOP — table */}
               <div className="overflow-auto rounded-2xl border bg-white shadow-sm">
                 <table className="min-w-full">
                   <thead className="bg-gray-50 text-left text-sm text-gray-600">
@@ -137,8 +146,8 @@ export default function OwnersPage() {
                     {filtered.map((o) => (
                       <tr key={o.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 font-medium">{o.name}</td>
-                        <td className="px-4 py-3">{o.email ?? "—"}</td>
-                        <td className="px-4 py-3">{o.phone ?? "—"}</td>
+                        <td className="px-4 py-3">{o.email}</td>
+                        <td className="px-4 py-3">{o.phone}</td>
                         <td className="px-4 py-3">{statusBadge(o.status)}</td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2">
@@ -167,7 +176,6 @@ export default function OwnersPage() {
                   </tbody>
                 </table>
               </div>
-              {/* /DESKTOP */}
             </div>
           )}
         </div>

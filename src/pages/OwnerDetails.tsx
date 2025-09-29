@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { fetchOwnerDetail, fetchOwnerPets } from "../services/dropdowns";
 
 type Owner = {
   id: string;
@@ -11,48 +12,42 @@ type Owner = {
   pets?: Array<{ id: string; name: string; species: string }>;
 };
 
-const MOCK_OWNERS: Record<string, Owner> = {
-  o1: {
-    id: "o1",
-    name: "Alice Johnson",
-    email: "alice@vetcare.local",
-    phone: "555-2001",
-    address: "12 Maple St",
-    notes: "Prefers morning appointments.",
-    pets: [
-      { id: "p1", name: "Buddy", species: "Dog" },
-      { id: "p2", name: "Misty", species: "Cat" },
-    ],
-  },
-  o2: {
-    id: "o2",
-    name: "Bob Patel",
-    email: "bob@vetcare.local",
-    phone: "555-2002",
-    address: "34 Oak Ave",
-    notes: "Allergic to penicillin.",
-    pets: [{ id: "p3", name: "Kiwi", species: "Bird" }],
-  },
-  o3: {
-    id: "o3",
-    name: "Charlie Lee",
-    email: "charlie@vetcare.local",
-    phone: "555-2003",
-    address: "52 Pine Rd",
-    notes: "Inactive profile.",
-    pets: [],
-  },
-};
-
 export default function OwnerDetailsPage() {
-  const { id } = useParams();
-  const owner: Owner =
-    (id && MOCK_OWNERS[id]) ||
-    ({
-      id: id ?? "unknown",
-      name: "Unknown Owner",
-      pets: [],
-    } as Owner);
+  const { id } = useParams<{ id: string }>();
+  const [owner, setOwner] = useState<Owner>({
+    id: id ?? "unknown",
+    name: "Loading…",
+    pets: [],
+  });
+
+  useEffect(() => {
+    if (!id) return;
+
+    (async () => {
+      try {
+        // owner core fields
+        const o = await fetchOwnerDetail(id);
+        // pets for this owner
+        const p = await fetchOwnerPets(id);
+        setOwner({
+          id: o.id,
+          name: (o.name ?? "").trim() || o.email,
+          email: o.email,
+          phone: o.phone ?? undefined,
+          address: o.address ?? undefined,
+          notes: o.notes ?? undefined,
+          pets: p.map((x) => ({ id: x.id, name: x.name, species: "—" })),
+        });
+      } catch (e) {
+        console.error("Owner detail load failed:", e);
+        setOwner({
+          id,
+          name: "Unknown Owner",
+          pets: [],
+        });
+      }
+    })();
+  }, [id]);
 
   return (
     <div className="p-6 space-y-6">
@@ -113,7 +108,7 @@ export default function OwnerDetailsPage() {
       <div className="rounded-2xl border bg-white shadow-sm">
         <div className="border-b p-4">
           <h2 className="text-base font-medium">Pets</h2>
-          <p className="text-xs text-gray-500">Pets linked to this owner (UI-only).</p>
+          <p className="text-xs text-gray-500">Pets linked to this owner.</p>
         </div>
 
         <div className="p-4 sm:p-6">
