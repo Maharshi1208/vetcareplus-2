@@ -1,62 +1,57 @@
-import React, { useMemo, useState } from "react";
+// src/pages/AddPet.tsx
+import React, { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { usePets } from "../context/PetsContext";
+import { useAuth } from "../context/AuthContext";
+import { fetchOwners, type OwnerOption } from "../services/dropdowns";
+import { getAccessToken } from "../services/api";
 
-type SpeciesKey =
-  | "Dog"
-  | "Cat"
-  | "Bird"
-  | "Rabbit"
-  | "Reptile"
-  | "Other"
-  | string;
+type SpeciesKey = "Dog" | "Cat" | "Bird" | "Rabbit" | "Reptile" | "Other" | string;
 
-const SPECIES: SpeciesKey[] = [
-  "Dog",
-  "Cat",
-  "Bird",
-  "Rabbit",
-  "Reptile",
-  "Other",
-];
+const SPECIES: SpeciesKey[] = ["Dog", "Cat", "Bird", "Rabbit", "Reptile", "Other"];
 
 const BREEDS: Record<string, string[]> = {
-  Dog: [
-    "Labrador Retriever",
-    "German Shepherd",
-    "Golden Retriever",
-    "Bulldog",
-    "Poodle",
-    "Beagle",
-    "Other",
-  ],
-  Cat: ["Siamese", "Persian", "Maine Coon", "Bengal", "Sphynx", "Ragdoll", "Other"],
-  Bird: ["Parakeet", "Cockatiel", "Canary", "Macaw", "Finch", "Other"],
-  Rabbit: ["Holland Lop", "Netherland Dwarf", "Rex", "Lionhead", "Other"],
-  Reptile: ["Bearded Dragon", "Leopard Gecko", "Corn Snake", "Turtle", "Other"],
+  Dog: ["Labrador Retriever","German Shepherd","Golden Retriever","Bulldog","Poodle","Beagle","Other"],
+  Cat: ["Siamese","Persian","Maine Coon","Bengal","Sphynx","Ragdoll","Other"],
+  Bird: ["Parakeet","Cockatiel","Canary","Macaw","Finch","Other"],
+  Rabbit: ["Holland Lop","Netherland Dwarf","Rex","Lionhead","Other"],
+  Reptile: ["Bearded Dragon","Leopard Gecko","Corn Snake","Turtle","Other"],
   Other: ["Other"],
 };
 
-const COLORS = ["Black", "Brown", "White", "Golden", "Gray", "Cream", "Mixed", "Other"];
+const COLORS = ["Black","Brown","White","Golden","Gray","Cream","Mixed","Other"];
 const GENDERS: Array<"MALE" | "FEMALE" | "UNKNOWN"> = ["MALE", "FEMALE", "UNKNOWN"];
-const OWNERS = ["Alice", "Bob", "Charlie", "Daisy", "Other"];
 
+// Map UI species → API species string
 const SPECIES_TO_API: Record<string, string> = {
-  Dog: "Dogs",
-  Cat: "Cats",
-  Bird: "Birds",
-  Rabbit: "Rabbits",
-  Reptile: "Reptiles",
-  Other: "Other",
+  Dog: "Dogs", Cat: "Cats", Bird: "Birds", Rabbit: "Rabbits", Reptile: "Reptiles", Other: "Other",
 };
 function toApiSpecies(s: SpeciesKey | ""): string {
   if (!s) return "Other";
   return SPECIES_TO_API[s] ?? String(s);
 }
 
+// ---- NEW: robust role fallback from JWT ----
+function currentRole(userRole?: string | null): "ADMIN" | "OWNER" | "VET" | null {
+  if (userRole) return userRole as any;
+  try {
+    const t = getAccessToken();
+    if (!t) return null;
+    const payload = JSON.parse(atob(t.split(".")[1]));
+    return payload?.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default function AddPetPage() {
   const navigate = useNavigate();
   const { addPet } = usePets();
+  const { user } = useAuth();                          // may be null briefly on load
+  const role = currentRole(user?.role);                // ← use JWT fallback if needed
+
+  const [owners, setOwners] = useState<OwnerOption[]>([]);
+  const [ownersErr, setOwnersErr] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -68,8 +63,7 @@ export default function AddPetPage() {
     ageYears: "",
     ageMonths: "",
     weightKg: "",
-    ownerName: "",
-    customOwner: "",
+    ownerId: "",                 // ← use ownerId instead of ownerName
     microchipId: "",
     vaccinated: false,
     neutered: false,
@@ -78,6 +72,26 @@ export default function AddPetPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+
+  // ---- Load owners based on role (OWNER → “me”, ADMIN/VET → real list) ----
+  useEffect(() => {
+    if (!role) return; // wait until we know the role
+    if (role === "OWNER") {
+      setOwners([{ id: "me", name: "Me", email: "" }]);
+      setForm((f) => ({ ...f, ownerId: "me" }));
+      return;
+    }
+    setOwnersErr(null);
+    fetchOwners()
+      .then((list) => {
+        setOwners(list);
+        // keep selection valid
+        setForm((f) =>
+          list.some((o) => o.id === f.ownerId) ? f : { ...f, ownerId: "" }
+        );
+      })
+      .catch((e) => setOwnersErr(e?.message || "Failed to load owners"));
+  }, [role]);
 
   const speciesBreeds = useMemo<string[]>(() => {
     if (!form.species || !BREEDS[form.species]) return [];
@@ -92,16 +106,13 @@ export default function AddPetPage() {
     const e: Record<string, string> = {};
     if (form.name.trim().length < 2) e.name = "Name must be at least 2 characters.";
     if (!form.species) e.species = "Please select a species.";
+    if (!form.ownerId) e.ownerId = "Please select an owner.";
 
     if (speciesBreeds.length > 0) {
       if (!form.breed) e.breed = "Please select a breed.";
       if (form.breed === "Other" && form.customBreed.trim().length < 2) {
         e.customBreed = "Enter a custom breed.";
       }
-    }
-
-    if (form.ownerName === "Other" && form.customOwner.trim().length < 2) {
-      e.customOwner = "Enter owner name.";
     }
 
     if (form.ageYears !== "") {
@@ -112,7 +123,6 @@ export default function AddPetPage() {
       const m = Number(form.ageMonths);
       if (!Number.isFinite(m) || m < 0 || m > 11) e.ageMonths = "0–11 months.";
     }
-
     if (form.weightKg !== "") {
       const w = Number(form.weightKg);
       if (!Number.isFinite(w) || w < 0 || w > 120) e.weightKg = "0–120 kg.";
@@ -128,11 +138,8 @@ export default function AddPetPage() {
 
     const finalBreed =
       form.breed === "Other" ? form.customBreed.trim() : form.breed.trim() || undefined;
-    const finalOwner =
-      form.ownerName === "Other"
-        ? form.customOwner.trim()
-        : form.ownerName.trim() || undefined;
 
+    // Prepare payload (ADMIN can set ownerId; OWNER will be “me” and backend maps to req.user.sub)
     const payload = {
       name: form.name.trim(),
       species: toApiSpecies((form.species as SpeciesKey) || "Other"),
@@ -142,22 +149,22 @@ export default function AddPetPage() {
       ageYears: form.ageYears === "" ? undefined : Number(form.ageYears),
       ageMonths: form.ageMonths === "" ? undefined : Number(form.ageMonths),
       weightKg: form.weightKg === "" ? undefined : Number(form.weightKg),
-      ownerName: finalOwner,
       microchipId: form.microchipId || undefined,
       vaccinated: form.vaccinated,
       neutered: form.neutered,
       notes: form.notes.trim() || undefined,
+      ...(role === "ADMIN" && form.ownerId && form.ownerId !== "me"
+        ? { ownerId: form.ownerId }
+        : {}), // OWNER/VET: no ownerId override
     };
 
     setSaving(true);
     setApiError(null);
     try {
       await addPet(payload);
-      navigate("/pets", {
-        state: { flash: { type: "success", message: "Pet saved" } },
-      });
+      navigate("/pets", { state: { flash: { type: "success", message: "Pet saved" } } });
     } catch (e: any) {
-      setApiError(e.message ?? "Failed to save pet");
+      setApiError(e?.message ?? "Failed to save pet");
     } finally {
       setSaving(false);
     }
@@ -174,8 +181,7 @@ export default function AddPetPage() {
       ageYears: "",
       ageMonths: "",
       weightKg: "",
-      ownerName: "",
-      customOwner: "",
+      ownerId: role === "OWNER" ? "me" : "",
       microchipId: "",
       vaccinated: false,
       neutered: false,
@@ -185,17 +191,16 @@ export default function AddPetPage() {
     setApiError(null);
   }
 
+  const ownerSelectDisabled = role === "OWNER";
+
   return (
     <div className="p-6">
-      {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Add Pet</h1>
           <p className="text-sm text-gray-500">Create a new pet profile.</p>
         </div>
-        <Link to="/pets" className="text-sm underline">
-          ← Back to Pets
-        </Link>
+        <Link to="/pets" className="text-sm underline">← Back to Pets</Link>
       </div>
 
       {apiError && (
@@ -204,12 +209,9 @@ export default function AddPetPage() {
         </div>
       )}
 
-      {/* Card */}
       <div className="rounded-2xl border bg-white shadow-sm">
         <form onSubmit={onSubmit}>
-          <div className="border-b p-4">
-            <h2 className="text-base font-medium">Pet Details</h2>
-          </div>
+          <div className="border-b p-4"><h2 className="text-base font-medium">Pet Details</h2></div>
 
           <div className="p-4 sm:p-6 space-y-6">
             {/* Name / Species */}
@@ -224,24 +226,15 @@ export default function AddPetPage() {
                 />
                 {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
               </div>
-
               <div>
                 <label className="block text-sm font-medium">Species *</label>
                 <select
                   value={form.species}
-                  onChange={(e) => {
-                    set("species", e.target.value as SpeciesKey);
-                    set("breed", "");
-                    set("customBreed", "");
-                  }}
+                  onChange={(e) => { set("species", e.target.value as SpeciesKey); set("breed",""); set("customBreed",""); }}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                 >
                   <option value="">Select species…</option>
-                  {SPECIES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
+                  {SPECIES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
                 {errors.species && <p className="mt-1 text-sm text-red-600">{errors.species}</p>}
               </div>
@@ -259,11 +252,7 @@ export default function AddPetPage() {
                       className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                     >
                       <option value="">Select breed…</option>
-                      {speciesBreeds.map((b) => (
-                        <option key={b} value={b}>
-                          {b}
-                        </option>
-                      ))}
+                      {speciesBreeds.map((b) => <option key={b} value={b}>{b}</option>)}
                     </select>
                     {errors.breed && <p className="mt-1 text-sm text-red-600">{errors.breed}</p>}
                     {form.breed === "Other" && (
@@ -274,9 +263,7 @@ export default function AddPetPage() {
                           className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                           placeholder="Enter custom breed"
                         />
-                        {errors.customBreed && (
-                          <p className="mt-1 text-sm text-red-600">{errors.customBreed}</p>
-                        )}
+                        {errors.customBreed && <p className="mt-1 text-sm text-red-600">{errors.customBreed}</p>}
                       </>
                     )}
                   </>
@@ -298,11 +285,7 @@ export default function AddPetPage() {
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                 >
                   <option value="">Select color…</option>
-                  {COLORS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
+                  {COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             </div>
@@ -314,38 +297,29 @@ export default function AddPetPage() {
                 <input
                   value={form.ageYears}
                   onChange={(e) => set("ageYears", e.target.value)}
-                  type="number"
-                  min={0}
-                  max={40}
+                  type="number" min={0} max={40}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                   placeholder="0"
                 />
                 {errors.ageYears && <p className="mt-1 text-sm text-red-600">{errors.ageYears}</p>}
               </div>
-
               <div>
                 <label className="block text-sm font-medium">Age (Months)</label>
                 <input
                   value={form.ageMonths}
                   onChange={(e) => set("ageMonths", e.target.value)}
-                  type="number"
-                  min={0}
-                  max={11}
+                  type="number" min={0} max={11}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                   placeholder="0–11"
                 />
                 {errors.ageMonths && <p className="mt-1 text-sm text-red-600">{errors.ageMonths}</p>}
               </div>
-
               <div>
                 <label className="block text-sm font-medium">Weight (kg)</label>
                 <input
                   value={form.weightKg}
                   onChange={(e) => set("weightKg", e.target.value)}
-                  type="number"
-                  step="0.1"
-                  min={0}
-                  max={120}
+                  type="number" step="0.1" min={0} max={120}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                   placeholder="e.g., 4.5"
                 />
@@ -362,44 +336,29 @@ export default function AddPetPage() {
                   onChange={(e) => set("gender", e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                 >
-                  {GENDERS.map((g) => (
-                    <option key={g} value={g}>
-                      {g[0] + g.slice(1).toLowerCase()}
-                    </option>
-                  ))}
+                  {GENDERS.map((g) => <option key={g} value={g}>{g[0] + g.slice(1).toLowerCase()}</option>)}
                 </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium">Owner</label>
                 <select
-                  value={form.ownerName}
-                  onChange={(e) => {
-                    set("ownerName", e.target.value);
-                    if (e.target.value !== "Other") set("customOwner", "");
-                  }}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                  value={form.ownerId}
+                  onChange={(e) => set("ownerId", e.target.value)}
+                  disabled={ownerSelectDisabled}
+                  className={`mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400 ${
+                    ownerSelectDisabled ? "bg-gray-100 text-gray-500" : ""
+                  }`}
                 >
-                  <option value="">Select owner…</option>
-                  {OWNERS.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
+                  <option value="">{ownerSelectDisabled ? "Me" : "Select owner…"}</option>
+                  {owners.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name || o.email || o.id}
                     </option>
                   ))}
                 </select>
-                {form.ownerName === "Other" && (
-                  <>
-                    <input
-                      value={form.customOwner}
-                      onChange={(e) => set("customOwner", e.target.value)}
-                      className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
-                      placeholder="Enter owner name"
-                    />
-                    {errors.customOwner && (
-                      <p className="mt-1 text-sm text-red-600">{errors.customOwner}</p>
-                    )}
-                  </>
-                )}
+                {errors.ownerId && <p className="mt-1 text-sm text-red-600">{errors.ownerId}</p>}
+                {ownersErr && <p className="mt-1 text-sm text-red-600">{ownersErr}</p>}
               </div>
 
               <div>
@@ -424,7 +383,6 @@ export default function AddPetPage() {
                 />
                 <span className="text-sm">Vaccinated</span>
               </label>
-
               <label className="inline-flex items-center gap-3">
                 <input
                   type="checkbox"
@@ -450,19 +408,10 @@ export default function AddPetPage() {
           </div>
 
           <div className="flex flex-col gap-3 border-t p-4 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={onReset}
-              disabled={saving}
-              className="rounded-xl border px-4 py-2 disabled:opacity-60"
-            >
+            <button type="button" onClick={onReset} disabled={saving} className="rounded-xl border px-4 py-2 disabled:opacity-60">
               Reset
             </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-xl bg-blue-600 px-5 py-2 text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
-            >
+            <button type="submit" disabled={saving} className="rounded-xl bg-blue-600 px-5 py-2 text-white shadow-sm hover:bg-blue-700 disabled:opacity-60">
               {saving ? "Saving…" : "Save Pet"}
             </button>
           </div>

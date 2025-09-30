@@ -2,6 +2,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { usePets } from "../context/PetsContext";
+import { useAuth } from "../context/AuthContext";
+import { fetchOwners, type OwnerOption } from "../services/dropdowns";
 
 type SpeciesKey =
   | "Dog"
@@ -12,14 +14,7 @@ type SpeciesKey =
   | "Other"
   | string;
 
-const SPECIES: SpeciesKey[] = [
-  "Dog",
-  "Cat",
-  "Bird",
-  "Rabbit",
-  "Reptile",
-  "Other",
-];
+const SPECIES: SpeciesKey[] = ["Dog", "Cat", "Bird", "Rabbit", "Reptile", "Other"];
 
 const BREEDS: Record<string, string[]> = {
   Dog: [
@@ -40,14 +35,20 @@ const BREEDS: Record<string, string[]> = {
 
 const COLORS = ["Black", "Brown", "White", "Golden", "Gray", "Cream", "Mixed", "Other"];
 const GENDERS: Array<"MALE" | "FEMALE" | "UNKNOWN"> = ["MALE", "FEMALE", "UNKNOWN"];
-const OWNERS = ["Alice", "Bob", "Charlie", "Daisy", "Other"];
 
 export default function EditPetPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { pets, updatePet } = usePets();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
 
   const pet = pets.find((p) => p.id === id);
+
+  const [owners, setOwners] = useState<OwnerOption[]>([]);
+  useEffect(() => {
+    fetchOwners().then(setOwners).catch(() => setOwners([]));
+  }, []);
 
   const [form, setForm] = useState({
     name: "",
@@ -59,8 +60,9 @@ export default function EditPetPage() {
     ageYears: "",
     ageMonths: "",
     weightKg: "",
+    // NEW: store ownerId; keep ownerName for display compatibility
+    ownerId: "",
     ownerName: "",
-    customOwner: "",
     microchipId: "",
     vaccinated: false,
     neutered: false,
@@ -82,8 +84,8 @@ export default function EditPetPage() {
         ageYears: pet.ageYears?.toString() || "",
         ageMonths: pet.ageMonths?.toString() || "",
         weightKg: pet.weightKg?.toString() || "",
-        ownerName: pet.ownerName || "",
-        customOwner: "",
+        ownerId: (pet as any).ownerId ?? "", // prefer id if present
+        ownerName: (pet as any).ownerName || "", // for display only if you had it in UI data
         microchipId: pet.microchipId || "",
         vaccinated: pet.vaccinated || false,
         neutered: pet.neutered || false,
@@ -113,10 +115,6 @@ export default function EditPetPage() {
       }
     }
 
-    if (form.ownerName === "Other" && form.customOwner.trim().length < 2) {
-      e.customOwner = "Enter owner name.";
-    }
-
     if (form.ageYears !== "") {
       const y = Number(form.ageYears);
       if (!Number.isFinite(y) || y < 0 || y > 40) e.ageYears = "0–40 years.";
@@ -141,12 +139,8 @@ export default function EditPetPage() {
 
     const finalBreed =
       form.breed === "Other" ? form.customBreed.trim() : form.breed.trim() || undefined;
-    const finalOwner =
-      form.ownerName === "Other"
-        ? form.customOwner.trim()
-        : form.ownerName.trim() || undefined;
 
-    const payload = {
+    const payload: any = {
       name: form.name.trim(),
       species: form.species || "Other",
       breed: finalBreed ?? null,
@@ -155,12 +149,16 @@ export default function EditPetPage() {
       ageYears: form.ageYears === "" ? undefined : Number(form.ageYears),
       ageMonths: form.ageMonths === "" ? undefined : Number(form.ageMonths),
       weightKg: form.weightKg === "" ? undefined : Number(form.weightKg),
-      ownerName: finalOwner,
       microchipId: form.microchipId || undefined,
       vaccinated: form.vaccinated,
       neutered: form.neutered,
       notes: form.notes.trim() || undefined,
     };
+
+    // Only ADMIN may change ownership; backend enforces this too
+    if (isAdmin && form.ownerId) {
+      payload.ownerId = form.ownerId;
+    }
 
     setSaving(true);
     setApiError(null);
@@ -327,7 +325,9 @@ export default function EditPetPage() {
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                   placeholder="0–11"
                 />
-                {errors.ageMonths && <p className="mt-1 text-sm text-red-600">{errors.ageMonths}</p>}
+                {errors.ageMonths && (
+                  <p className="mt-1 text-sm text-red-600">{errors.ageMonths}</p>
+                )}
               </div>
 
               <div>
@@ -363,33 +363,40 @@ export default function EditPetPage() {
                 </select>
               </div>
 
+              {/* OWNER: now real data; disabled for non-admin */}
               <div>
                 <label className="block text-sm font-medium">Owner</label>
                 <select
-                  value={form.ownerName}
-                  onChange={(e) => {
-                    set("ownerName", e.target.value);
-                    if (e.target.value !== "Other") set("customOwner", "");
-                  }}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                  value={form.ownerId}
+                  onChange={(e) => set("ownerId", e.target.value)}
+                  disabled={!isAdmin}
+                  className={`mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400 ${
+                    !isAdmin ? "bg-gray-100 text-gray-500" : ""
+                  }`}
                 >
-                  <option value="">Select owner…</option>
-                  {OWNERS.map((o) => (
-                    <option key={o} value={o}>{o}</option>
+                  <option value="">
+                    {owners.length ? "Select owner..." : "— No owners —"}
+                  </option>
+                  {owners.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name || o.email || o.id}
+                    </option>
                   ))}
                 </select>
-                {form.ownerName === "Other" && (
-                  <>
-                    <input
-                      value={form.customOwner}
-                      onChange={(e) => set("customOwner", e.target.value)}
-                      className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
-                      placeholder="Enter owner name"
-                    />
-                    {errors.customOwner && (
-                      <p className="mt-1 text-sm text-red-600">{errors.customOwner}</p>
-                    )}
-                  </>
+                {!isAdmin && form.ownerName && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Current owner: {form.ownerName}
+                  </p>
+                )}
+                {!isAdmin && !form.ownerName && form.ownerId && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Owner ID: {form.ownerId}
+                  </p>
+                )}
+                {!isAdmin && !form.ownerId && !form.ownerName && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Only admins can change ownership.
+                  </p>
                 )}
               </div>
 
