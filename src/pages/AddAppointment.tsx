@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { apiPost } from "../services/api";
 import {
   fetchVets,
   fetchOwners,
@@ -15,122 +16,128 @@ type ApptStatus = "Booked" | "Rescheduled" | "Cancelled" | "Completed";
 
 export default function AddAppointmentPage() {
   const navigate = useNavigate();
-  const { user } = useAuth(); // expects { role: 'OWNER' | 'ADMIN' | 'VET', ... }
+  const { user } = useAuth(); // { role: 'OWNER' | 'ADMIN' | 'VET', ... }
 
-  // --- real data (was mock arrays) ---
+  // dropdown data
   const [vets, setVets] = useState<VetOption[]>([]);
   const [owners, setOwners] = useState<OwnerOption[]>([]);
   const [pets, setPets] = useState<PetOption[]>([]);
 
+  // form
   const [form, setForm] = useState({
-    date: "",
+    petId: "",
+    vetId: "",
+    ownerId: "", // 'me' for owners; real id for admins (if we show owner select)
     start: "",
     end: "",
-    petId: "",
-    ownerId: "", // 'me' for OWNER users
-    vetId: "",
     reason: "",
-    status: "Booked" as ApptStatus,
+    status: "Booked" as ApptStatus, // UI-only; backend sets BOOKED on create
     notes: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  const isOwner = user?.role === "OWNER";
+  const showOwnerSelect = !isOwner; // keep UI minimal: only admins see Owner select
 
   function set<K extends keyof typeof form>(k: K, v: any) {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
-  // Load vets once
+  // ---- load dropdowns ----
   useEffect(() => {
-    fetchVets().then(setVets).catch(console.error);
+    fetchVets().then(setVets).catch(() => setVets([]));
   }, []);
 
-  // Load owners depending on role: OWNER -> fixed "me"; ADMIN/VET -> fetch list
   useEffect(() => {
-    if (user?.role === "OWNER") {
-      // keep design (select remains), but prefill and lock to "me"
+    if (isOwner) {
       setOwners([{ id: "me", name: "Me", email: "" } as OwnerOption]);
       setForm((f) => (f.ownerId ? f : { ...f, ownerId: "me" }));
     } else {
       fetchOwners()
         .then(setOwners)
-        .catch(console.error);
+        .catch(() => setOwners([]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.role]);
+  }, [isOwner]);
 
-  // Load pets whenever ownerId changes (ownerId can be 'me' or a UUID)
   useEffect(() => {
     if (!form.ownerId) {
       setPets([]);
-      setForm((f) => ({ ...f, petId: "" }));
+      set("petId", "");
       return;
     }
     fetchOwnerPets(form.ownerId)
-      .then((items) => {
-        setPets(items);
-        // if current petId no longer valid, clear it
-        if (items.every((p) => p.id !== form.petId)) {
-          setForm((f) => ({ ...f, petId: "" }));
-        }
+      .then((p) => {
+        setPets(p);
+        if (p.every((x) => x.id !== form.petId)) set("petId", "");
       })
-      .catch(console.error);
+      .catch(() => setPets([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.ownerId]);
 
+  // ---- validation ----
   const canSubmit = useMemo(() => {
     return (
-      form.date.trim() &&
+      form.petId &&
+      form.vetId &&
       form.start.trim() &&
       form.end.trim() &&
-      form.petId &&
-      form.ownerId &&
-      form.vetId
+      (!showOwnerSelect || form.ownerId)
     );
-  }, [form]);
+  }, [form, showOwnerSelect]);
 
   function validate() {
     const e: Record<string, string> = {};
-    if (!form.date) e.date = "Select a date.";
-    if (!form.start) e.start = "Start time is required.";
-    if (!form.end) e.end = "End time is required.";
+    if (showOwnerSelect && !form.ownerId) e.ownerId = "Select an owner.";
     if (!form.petId) e.petId = "Select a pet.";
-    if (!form.ownerId) e.ownerId = "Select an owner.";
     if (!form.vetId) e.vetId = "Select a vet.";
-
-    // basic HH:mm check + start < end
-    const tOk = /^\d{2}:\d{2}$/;
-    if (form.start && !tOk.test(form.start)) e.start = "Use HH:mm format.";
-    if (form.end && !tOk.test(form.end)) e.end = "Use HH:mm format.";
-    if (tOk.test(form.start) && tOk.test(form.end)) {
-      if (form.start >= form.end) e.end = "End time must be after start time.";
+    if (!form.start) e.start = "Start date/time is required.";
+    if (!form.end) e.end = "End date/time is required.";
+    if (form.start && form.end && new Date(form.end) <= new Date(form.start)) {
+      e.end = "End must be after start.";
     }
-
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
-  function onSubmit(ev: React.FormEvent) {
+  // ---- submit ----
+  async function onSubmit(ev: React.FormEvent) {
     ev.preventDefault();
     if (!validate()) return;
 
-    // UI-only: mock “save”, then go back with a flash banner
-    // eslint-disable-next-line no-console
-    console.log("AddAppointment (UI-only) submit:", form);
+    setSubmitting(true);
+    try {
+      const res = await apiPost<{ ok: boolean; error?: string }>(
+        "/appointments",
+        {
+          petId: form.petId,
+          vetId: form.vetId,
+          start: new Date(form.start).toISOString(),
+          end: new Date(form.end).toISOString(),
+          reason: form.reason || undefined,
+        }
+      );
+      if (!res?.ok) throw new Error(res?.error || "Failed to create appointment");
 
-    navigate("/appointments", {
-      state: { flash: { type: "success", message: "Appointment created" } },
-    });
+      navigate("/appointments", {
+        state: { flash: { type: "success", message: "Appointment created" } },
+      });
+    } catch (err: any) {
+      alert(err?.message || "Failed to create appointment");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function onReset() {
     setForm({
-      date: "",
+      petId: "",
+      vetId: "",
+      ownerId: isOwner ? "me" : "",
       start: "",
       end: "",
-      petId: "",
-      ownerId: user?.role === "OWNER" ? "me" : "",
-      vetId: "",
       reason: "",
       status: "Booked",
       notes: "",
@@ -138,19 +145,12 @@ export default function AddAppointmentPage() {
     setErrors({});
   }
 
-  const ownerSelectDisabled = user?.role === "OWNER";
-
   return (
     <div className="p-6">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">New Appointment</h1>
-          <p className="text-sm text-gray-500">Create a booking (UI-only).</p>
-        </div>
-        <Link to="/appointments" className="text-sm underline">
-          ← Back to Appointments
-        </Link>
+        <h1 className="text-2xl font-semibold tracking-tight">New Appointment</h1>
+        <Link to="/appointments" className="text-sm underline">← Back</Link>
       </div>
 
       {/* Card */}
@@ -161,41 +161,7 @@ export default function AddAppointmentPage() {
           </div>
 
           <div className="p-4 sm:p-6 space-y-6">
-            {/* Date / Time */}
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <label className="block text-sm font-medium">Date *</label>
-                <input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => set("date", e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
-                />
-                {errors.date && <p className="mt-1 text-sm text-red-600">{errors.date}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium">Start *</label>
-                <input
-                  type="time"
-                  value={form.start}
-                  onChange={(e) => set("start", e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
-                />
-                {errors.start && <p className="mt-1 text-sm text-red-600">{errors.start}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium">End *</label>
-                <input
-                  type="time"
-                  value={form.end}
-                  onChange={(e) => set("end", e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
-                />
-                {errors.end && <p className="mt-1 text-sm text-red-600">{errors.end}</p>}
-              </div>
-            </div>
-
-            {/* Pet / Owner / Vet */}
+            {/* Row 1: Pet / Vet / Status */}
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <label className="block text-sm font-medium">Pet *</label>
@@ -204,7 +170,9 @@ export default function AddAppointmentPage() {
                   onChange={(e) => set("petId", e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                 >
-                  <option value="">Select pet…</option>
+                  <option value="">
+                    {pets.length ? "Select pet…" : "— No pets found —"}
+                  </option>
                   {pets.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -213,25 +181,7 @@ export default function AddAppointmentPage() {
                 </select>
                 {errors.petId && <p className="mt-1 text-sm text-red-600">{errors.petId}</p>}
               </div>
-              <div>
-                <label className="block text-sm font-medium">Owner *</label>
-                <select
-                  value={form.ownerId}
-                  onChange={(e) => set("ownerId", e.target.value)}
-                  disabled={ownerSelectDisabled}
-                  className={`mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400 ${
-                    ownerSelectDisabled ? "bg-gray-100 text-gray-500" : ""
-                  }`}
-                >
-                  <option value="">{ownerSelectDisabled ? "Me" : "Select owner…"}</option>
-                  {owners.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name || o.email || o.id}
-                    </option>
-                  ))}
-                </select>
-                {errors.ownerId && <p className="mt-1 text-sm text-red-600">{errors.ownerId}</p>}
-              </div>
+
               <div>
                 <label className="block text-sm font-medium">Vet *</label>
                 <select
@@ -239,7 +189,9 @@ export default function AddAppointmentPage() {
                   onChange={(e) => set("vetId", e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
                 >
-                  <option value="">Select vet…</option>
+                  <option value="">
+                    {vets.length ? "Select vet…" : "— No vets available —"}
+                  </option>
                   {vets.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.name}
@@ -248,11 +200,69 @@ export default function AddAppointmentPage() {
                 </select>
                 {errors.vetId && <p className="mt-1 text-sm text-red-600">{errors.vetId}</p>}
               </div>
+
+              <div>
+                <label className="block text-sm font-medium">Status</label>
+                <select
+                  value={form.status}
+                  onChange={(e) => set("status", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                >
+                  {(["Booked", "Rescheduled", "Cancelled", "Completed"] as ApptStatus[]).map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Reason / Status */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
+            {/* Optional Owner (admins only) */}
+            {showOwnerSelect && (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label className="block text-sm font-medium">Owner *</label>
+                  <select
+                    value={form.ownerId}
+                    onChange={(e) => set("ownerId", e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                  >
+                    <option value="">Select owner…</option>
+                    {owners.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name || o.email}
+                      </option>
+                    ))}
+                    <option value="me">Me (self)</option>
+                  </select>
+                  {errors.ownerId && <p className="mt-1 text-sm text-red-600">{errors.ownerId}</p>}
+                </div>
+              </div>
+            )}
+
+            {/* Row 2: Start / End / Reason */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="sm:col-span-1">
+                <label className="block text-sm font-medium">Start *</label>
+                <input
+                  type="datetime-local"
+                  value={form.start}
+                  onChange={(e) => set("start", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                />
+                {errors.start && <p className="mt-1 text-sm text-red-600">{errors.start}</p>}
+              </div>
+              <div className="sm:col-span-1">
+                <label className="block text-sm font-medium">End *</label>
+                <input
+                  type="datetime-local"
+                  value={form.end}
+                  onChange={(e) => set("end", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
+                />
+                {errors.end && <p className="mt-1 text-sm text-red-600">{errors.end}</p>}
+              </div>
+              <div className="sm:col-span-1">
                 <label className="block text-sm font-medium">Reason</label>
                 <input
                   value={form.reason}
@@ -261,25 +271,9 @@ export default function AddAppointmentPage() {
                   placeholder="e.g., Checkup"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium">Status</label>
-                <select
-                  value={form.status}
-                  onChange={(e) => set("status", e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
-                >
-                  {(["Booked", "Rescheduled", "Cancelled", "Completed"] as ApptStatus[]).map(
-                    (s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
             </div>
 
-            {/* Notes */}
+            {/* Notes (UI only) */}
             <div>
               <label className="block text-sm font-medium">Notes</label>
               <textarea
@@ -287,23 +281,27 @@ export default function AddAppointmentPage() {
                 onChange={(e) => set("notes", e.target.value)}
                 rows={4}
                 className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
-                placeholder="Any special instructions…"
+                placeholder="Add notes (UI-only for now)"
               />
             </div>
+
+            <p className="text-xs text-gray-500">
+              Keep times within the vet’s availability to avoid conflicts.
+            </p>
           </div>
 
           <div className="flex flex-col gap-3 border-t p-4 sm:flex-row sm:justify-end">
             <button type="button" onClick={onReset} className="rounded-xl border px-4 py-2">
-              Reset
+              Cancel
             </button>
             <button
               type="submit"
-              disabled={!canSubmit}
+              disabled={!canSubmit || submitting}
               className={`rounded-xl px-5 py-2 text-white shadow-sm ${
-                canSubmit ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400"
+                canSubmit && !submitting ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400"
               }`}
             >
-              Save Appointment
+              {submitting ? "Saving…" : "Save"}
             </button>
           </div>
         </form>
