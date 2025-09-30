@@ -67,12 +67,17 @@ function rowFrom(a: Appointment): Appt {
     start: toTorontoTime(a.start),
     end: toTorontoTime(a.end),
     pet: a.pet?.name ?? "—",
-    owner: a.pet?.ownerId ? String(a.pet.ownerId) : "—",
+    // Prefer normalized owner object; then try joined pet.owner; finally fallback to ID
+    owner:
+      a.owner?.name ??
+      (a.pet as any)?.owner?.name ??
+      (a.owner?.id ?? a.pet?.ownerId ?? "—"),
     vet: a.vet?.name ?? "—",
     reason: a.reason ?? "—",
     status: mapStatus(a.status),
   };
 }
+
 
 export default function AppointmentsPage() {
   const location = useLocation();

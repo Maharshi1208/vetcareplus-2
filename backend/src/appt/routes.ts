@@ -1,3 +1,4 @@
+// backend/src/appt/routes.ts
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/db.js';
@@ -41,15 +42,9 @@ function minutesOfDayLocal(d: Date) { return d.getHours() * 60 + d.getMinutes();
 
 /**
  * Resolve the vetId that corresponds to the logged-in user.
- * - Prefer Vet.userId == req.user.sub (if your schema has it)
- * - Fallback: match Vet by email == req.user.email
- */
-/**
- * Resolve the vetId that corresponds to the logged-in user.
  * Tries email first (safe), then userId if your schema has it.
  */
 async function vetIdForReq(req: AuthedRequest): Promise<string | null> {
-  // 1) Try by email (works even if Vet has no userId column)
   if (req.user?.email) {
     const byEmail = await prisma.vet.findFirst({
       where: { email: req.user.email },
@@ -57,21 +52,16 @@ async function vetIdForReq(req: AuthedRequest): Promise<string | null> {
     });
     if (byEmail?.id) return byEmail.id;
   }
-
-  // 2) Optional: try by userId if your Vet model has that column
-  // Use findFirst + a typed escape to avoid TS error when 'userId' isn't in the model
   try {
     const byUser = await prisma.vet.findFirst({
       where: { userId: req.user!.sub } as any,
       select: { id: true },
     });
     if (byUser?.id) return byUser.id;
-  } catch {
-    // ignore if schema doesn't have userId
-  }
-
+  } catch {}
   return null;
 }
+
 // within vet availability?
 async function withinAvailability(vetId: string, start: Date, end: Date) {
   if (!sameLocalDay(start, end)) return false; // simple rule for now
@@ -147,6 +137,13 @@ const statusSchema = z.object({
   status: z.enum(['BOOKED', 'CANCELLED', 'COMPLETED']),
 });
 
+/** Helper to build a compact owner object from a joined pet.owner */
+function buildOwnerFromPet(pet: any) {
+  const u = pet?.owner;
+  if (!u) return null;
+  return { id: u.id, name: u.name ?? u.email ?? u.id };
+}
+
 // ---------- routes ----------
 
 // GET /appointments (with pagination + filters)
@@ -183,12 +180,25 @@ router.get('/', authRequired, async (req: AuthedRequest, res) => {
       take: pageSize,
       select: {
         id: true, petId: true, vetId: true, start: true, end: true, status: true, reason: true, notes: true,
-        pet: { select: { name: true, ownerId: true } },
+        pet: {
+          select: {
+            name: true,
+            ownerId: true,
+            // ↓↓↓ join the user so we can display a human name
+            owner: { select: { id: true, name: true, email: true } },
+          }
+        },
         vet: { select: { name: true, specialty: true } },
       }
     }),
     prisma.appointment.count({ where })
   ]);
+
+  // add a top-level "owner" object while preserving the rest of each row
+  const withOwner = items.map((row: any) => ({
+    ...row,
+    owner: buildOwnerFromPet(row.pet),
+  }));
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   res.json({
@@ -196,7 +206,7 @@ router.get('/', authRequired, async (req: AuthedRequest, res) => {
     page, pageSize, total, totalPages,
     hasPrev: page > 1,
     hasNext: page < totalPages,
-    appointments: items
+    appointments: withOwner,
   });
 });
 
@@ -207,7 +217,13 @@ router.get('/:id', authRequired, async (req: AuthedRequest, res) => {
     where: { id },
     select: {
       id: true, petId: true, vetId: true, start: true, end: true, status: true, reason: true, notes: true,
-      pet: { select: { ownerId: true, name: true } },
+      pet: {
+        select: {
+          ownerId: true,
+          name: true,
+          owner: { select: { id: true, name: true, email: true } }, // ← join owner
+        }
+      },
       vet: { select: { name: true, specialty: true } },
       createdAt: true, updatedAt: true,
     }
@@ -215,22 +231,22 @@ router.get('/:id', authRequired, async (req: AuthedRequest, res) => {
 
   if (!appt) return res.status(404).json({ ok: false, error: 'Not found' });
 
-  if (isAdmin(req)) {
-    return res.json({ ok: true, appointment: appt });
+  if (!isAdmin(req)) {
+    if (isVet(req)) {
+      const vid = await vetIdForReq(req);
+      if (!vid) return res.status(403).json({ ok: false, error: 'No vet profile linked to this user' });
+      if (appt.vetId !== vid) return res.status(403).json({ ok: false, error: 'Forbidden' });
+    } else {
+      // OWNER
+      if (appt.pet?.ownerId !== req.user!.sub) {
+        return res.status(403).json({ ok: false, error: 'Forbidden' });
+      }
+    }
   }
 
-  if (isVet(req)) {
-    const vid = await vetIdForReq(req);
-    if (!vid) return res.status(403).json({ ok: false, error: 'No vet profile linked to this user' });
-    if (appt.vetId !== vid) return res.status(403).json({ ok: false, error: 'Forbidden' });
-    return res.json({ ok: true, appointment: appt });
-  }
-
-  // OWNER
-  if (appt.pet?.ownerId !== req.user!.sub) {
-    return res.status(403).json({ ok: false, error: 'Forbidden' });
-  }
-  return res.json({ ok: true, appointment: appt });
+  // include top-level owner object for convenience
+  const out: any = { ...appt, owner: buildOwnerFromPet(appt.pet) };
+  return res.json({ ok: true, appointment: out });
 });
 
 // POST /appointments (book)
@@ -273,8 +289,19 @@ router.post('/', authRequired, async (req: AuthedRequest, res) => {
     return res.status(409).json({ ok: false, error: 'Conflicting appointment' });
   }
 
-  const appt = await prisma.appointment.create({
+  const created = await prisma.appointment.create({
     data: { petId, vetId, start: s, end: e, status: 'BOOKED', reason },
+    select: {
+      id: true, petId: true, vetId: true, start: true, end: true, status: true, reason: true, notes: true,
+      pet: {
+        select: {
+          name: true,
+          ownerId: true,
+          owner: { select: { id: true, name: true, email: true } },
+        }
+      },
+      vet: { select: { name: true, specialty: true } },
+    }
   });
 
   // fire-and-forget email (swallow errors)
@@ -288,7 +315,8 @@ router.post('/', authRequired, async (req: AuthedRequest, res) => {
     }
   } catch {}
 
-  res.status(201).json({ ok: true, appointment: appt });
+  const out: any = { ...created, owner: buildOwnerFromPet(created.pet) };
+  res.status(201).json({ ok: true, appointment: out });
 });
 
 // PATCH /appointments/:id/reschedule
@@ -403,11 +431,7 @@ router.patch('/:id/cancel', authRequired, async (req: AuthedRequest, res) => {
   res.json({ ok: true, appointment: { id: updated.id, status: updated.status } });
 });
 
-/* NEW ---------------------------------------------
-   PATCH /appointments/:id/restore
-   - Only allowed when status === CANCELLED
-   - Re-checks availability + conflicts for current time window
--------------------------------------------------- */
+// PATCH /appointments/:id/restore
 router.patch('/:id/restore', authRequired, async (req: AuthedRequest, res) => {
   const appt = await prisma.appointment.findUnique({
     where: { id: req.params.id },
@@ -445,7 +469,6 @@ router.patch('/:id/restore', authRequired, async (req: AuthedRequest, res) => {
     }
   });
 
-  // Optional: treat restore like "booked" confirmation
   try {
     const owner = await prisma.user.findUnique({
       where: { id: appt.pet.ownerId },
@@ -459,12 +482,7 @@ router.patch('/:id/restore', authRequired, async (req: AuthedRequest, res) => {
   res.json({ ok: true, appointment: updated });
 });
 
-/* NEW ---------------------------------------------
-   POST /appointments/:id/status
-   - Generic status update used by frontend fallback
-   - Mirrors rules of the explicit endpoints above
-   - COMPLETED remains admin-only and requires SUCCESS payment
--------------------------------------------------- */
+// POST /appointments/:id/status (fallback)
 router.post('/:id/status', authRequired, async (req: AuthedRequest, res) => {
   const { status } = statusSchema.parse(req.body);
 
@@ -478,13 +496,10 @@ router.post('/:id/status', authRequired, async (req: AuthedRequest, res) => {
   });
   if (!appt) return res.status(404).json({ ok: false, error: 'Not found' });
 
-  // CANCEL
   if (status === 'CANCELLED') {
     if (appt.status !== 'BOOKED') {
       return res.status(400).json({ ok: false, error: 'Only BOOKED can be cancelled' });
     }
-
-    // allow admin, owning vet, or owner
     if (!isAdmin(req)) {
       if (isVet(req)) {
         const vid = await vetIdForReq(req);
@@ -497,12 +512,10 @@ router.post('/:id/status', authRequired, async (req: AuthedRequest, res) => {
         }
       }
     }
-
     const updated = await prisma.appointment.update({
       where: { id: appt.id },
       data: { status: 'CANCELLED' },
     });
-
     try {
       const owner = await prisma.user.findUnique({
         where: { id: appt.pet.ownerId },
@@ -512,11 +525,9 @@ router.post('/:id/status', authRequired, async (req: AuthedRequest, res) => {
         void sendApptCancelled(owner.email, appt.pet.name, appt.vet.name, appt.start);
       }
     } catch {}
-
     return res.json({ ok: true, appointment: updated });
   }
 
-  // RESTORE -> BOOKED
   if (status === 'BOOKED') {
     if (appt.status !== 'CANCELLED') {
       return res.status(400).json({ ok: false, error: 'Only CANCELLED can be restored' });
@@ -524,22 +535,18 @@ router.post('/:id/status', authRequired, async (req: AuthedRequest, res) => {
     if (!isAdmin(req) && appt.pet.ownerId !== req.user!.sub) {
       return res.status(403).json({ ok: false, error: 'Forbidden' });
     }
-
     const s = appt.start;
     const e = appt.end;
-
     if (!(await withinAvailability(appt.vetId, s, e))) {
       return res.status(409).json({ ok: false, error: 'Outside vet availability' });
     }
     if (await apptConflict(appt.vetId, s, e, appt.id)) {
       return res.status(409).json({ ok: false, error: 'Time slot no longer available' });
     }
-
     const updated = await prisma.appointment.update({
       where: { id: appt.id },
       data: { status: 'BOOKED' },
     });
-
     try {
       const owner = await prisma.user.findUnique({
         where: { id: appt.pet.ownerId },
@@ -549,11 +556,9 @@ router.post('/:id/status', authRequired, async (req: AuthedRequest, res) => {
         void sendApptBooked(owner.email, appt.pet.name, appt.vet.name, updated.start, updated.end);
       }
     } catch {}
-
     return res.json({ ok: true, appointment: updated });
   }
 
-  // COMPLETE (admin only + paid)
   if (status === 'COMPLETED') {
     if (!isAdmin(req)) {
       return res.status(403).json({ ok: false, error: 'Admin only' });
@@ -575,7 +580,6 @@ router.post('/:id/status', authRequired, async (req: AuthedRequest, res) => {
     return res.json({ ok: true, appointment: updated });
   }
 
-  // should never reach here because of schema, but just in case
   return res.status(400).json({ ok: false, error: 'Unsupported status transition' });
 });
 
