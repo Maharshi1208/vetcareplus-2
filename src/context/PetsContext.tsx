@@ -69,8 +69,10 @@ export function PetsProvider({ children }: { children: React.ReactNode }) {
       if (res.ok) {
         if (Array.isArray(body)) {
           setPets(body.map(normalizePet));
+          setError(null); // ✅ clear error on success
         } else if (Array.isArray(body?.pets)) {
           setPets(body.pets.map(normalizePet));
+          setError(null); // ✅ clear error on success
         } else {
           setPets([]);
           console.error("Unexpected pets response:", body);
@@ -140,10 +142,8 @@ export function PetsProvider({ children }: { children: React.ReactNode }) {
           ...authHeaders(),
         },
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.error || "Failed to delete pet");
-      }
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error || "Failed to delete pet");
       setPets((old) => old.filter((p) => p.id !== id));
     } catch (err) {
       console.error("removePet error:", err);
@@ -151,9 +151,9 @@ export function PetsProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const ctrl = new AbortController();
-    reloadPets(ctrl.signal);
-    return () => ctrl.abort();
+    const controller = new AbortController();
+    reloadPets(controller.signal);
+    return () => controller.abort();
   }, [reloadPets]);
 
   return (
@@ -167,6 +167,6 @@ export function PetsProvider({ children }: { children: React.ReactNode }) {
 
 export function usePets() {
   const ctx = useContext(PetsContext);
-  if (!ctx) throw new Error("usePets must be used inside <PetsProvider>");
+  if (!ctx) throw new Error("usePets must be used within a PetsProvider");
   return ctx;
 }

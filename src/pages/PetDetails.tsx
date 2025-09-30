@@ -1,39 +1,7 @@
+// src/pages/PetDetails.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-
-const API_BASE = "http://localhost:4000";
-const PETS_URL = `${API_BASE}/pets`;
-
-function getToken() {
-  try {
-    return localStorage.getItem("token");
-  } catch {
-    return null;
-  }
-}
-
-function createHeaders() {
-  const h: Record<string, string> = { Accept: "application/json" };
-  const token = getToken();
-  if (token) h.Authorization = `Bearer ${token}`;
-  return h;
-}
-
-async function http<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: createHeaders() });
-  const text = await res.text();
-  let data: any = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
-  if (!res.ok) {
-    const msg = data?.message || data?.error || `Request failed (${res.status})`;
-    throw new Error(msg);
-  }
-  return data as T;
-}
+import { apiGet } from "../services/api"; // ✅ use shared API service
 
 // Normalize backend → frontend fields
 function normalizePet(raw: any) {
@@ -85,7 +53,8 @@ export default function PetDetailsPage() {
       setLoading(true);
       setError(null);
       try {
-        const data = await http<any>(`${PETS_URL}/${id}`);
+        // ✅ use apiGet so authHeaders() adds Bearer token
+        const data = await apiGet<any>(`/pets/${id}`);
         const p = normalizePet(data.pet ?? data);
         if (!cancelled) setPet(p);
       } catch (e: any) {
@@ -142,14 +111,8 @@ export default function PetDetailsPage() {
             label="DOB"
             value={pet.dob ? new Date(pet.dob).toLocaleDateString() : "—"}
           />
-          <Field
-            label="Age"
-            value={age ? `${age.years}y ${age.months}m` : "—"}
-          />
-          <Field
-            label="Weight"
-            value={pet.weightKg ? `${pet.weightKg} kg` : "—"}
-          />
+          <Field label="Age" value={age ? `${age.years}y ${age.months}m` : "—"} />
+          <Field label="Weight" value={pet.weightKg ? `${pet.weightKg} kg` : "—"} />
           <Field label="Microchip" value={pet.microchipId} />
           <Field label="Vaccinated" value={pet.vaccinated ? "Yes" : "No"} />
           <Field label="Neutered" value={pet.neutered ? "Yes" : "No"} />

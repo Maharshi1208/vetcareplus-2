@@ -14,17 +14,21 @@ export function getAccessToken(): string | null {
 
 // NEW: set/clear the primary token key ("access") without changing old readers
 export function setAccessToken(token: string | null) {
-  if (token) localStorage.setItem("access", token);
+  if (token) localStorage.setItem("access", token.trim());
   else localStorage.removeItem("access");
 }
 
 // NEW: convenience to pull token from common auth payload shapes
 export function setTokenFromAuthPayload(payload: any): string | null {
   const t =
-    payload?.tokens?.access ??
-    payload?.accessToken ??
-    payload?.token ??
+    payload?.tokens?.access ??       // { tokens: { access: "..." } }
+    payload?.accessToken ??          // { accessToken: "..." }
+    payload?.token ??                // { token: "..." }
+    payload?.jwt ??                  // { jwt: "..." }
+    payload?.access_token ??         // { access_token: "..." }
+    payload?.data?.token ??          // { data: { token: "..." } }
     null;
+
   setAccessToken(t ?? null);
   return t ?? null;
 }
@@ -35,7 +39,10 @@ export function clearTokens() {
 
 export function authHeaders() {
   const tok = getAccessToken();
-  return tok ? { Authorization: `Bearer ${tok}` } : {};
+  if (!tok) return {};
+  // ✅ remove any newline or carriage return characters, then trim
+  const clean = tok.replace(/\r?\n|\r/g, "").trim();
+  return { Authorization: `Bearer ${clean}` };
 }
 
 // ---- Error type & guards ---------------------------------------------------
@@ -66,13 +73,20 @@ async function request<T>(
 
   let res: Response;
   try {
+    const headers = {
+      ...(isForm ? {} : { "Content-Type": "application/json" }),
+      ...authHeaders(),
+      ...extraHeaders,
+    };
+
+    // Dev-only log of Authorization header
+    if (import.meta.env.DEV && headers.Authorization) {
+      console.log("[API] Sending Authorization:", headers.Authorization);
+    }
+
     res = await fetch(url, {
       method,
-      headers: {
-        ...(isForm ? {} : { "Content-Type": "application/json" }),
-        ...authHeaders(),
-        ...extraHeaders,
-      },
+      headers,
       body: body == null ? undefined : (isForm ? (body as any) : JSON.stringify(body)),
     });
   } catch (e: any) {
