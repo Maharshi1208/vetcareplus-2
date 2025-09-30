@@ -9,5 +9,27 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- ✅ Dialogflow Messenger widget -->
+    <script src="https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1"></script>
+    <df-messenger
+      chat-title="VetCare+ Assistant"
+      agent-id="c9231277-eab5-4000-8994-84155e33df6b"
+      language-code="en"
+    ></df-messenger>
+
+    <!-- 🎨 Custom styling for Dialogflow Messenger -->
+    <style>
+      df-messenger {
+        --df-messenger-bot-message: #0076ff;       /* Bot messages */
+        --df-messenger-user-message: #00c6ff;      /* User messages */
+        --df-messenger-font-color: white;          /* Text color inside bubbles */
+        --df-messenger-send-icon: #0076ff;         /* Send button */
+        --df-messenger-chat-background: #f9fafb;   /* Chat background */
+        --df-messenger-titlebar-color: linear-gradient(45deg, #0076ff, #00c6ff); /* Gradient header */
+        --df-messenger-titlebar-font-color: white; /* Header text */
+        --df-messenger-input-placeholder-font-color: #6b7280; /* Placeholder */
+      }
+    </style>
   </body>
 </html>

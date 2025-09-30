@@ -110,9 +110,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {/* Page content */}
         <main className="p-4 md:p-6">{children}</main>
       </div>
-
-      {/* ✅ Global chatbot floating widget */}
-      <ChatBot />
     </div>
   );
 }

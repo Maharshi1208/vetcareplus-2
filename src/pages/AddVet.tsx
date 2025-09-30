@@ -16,7 +16,7 @@ export default function AddVetPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);      // <-- added
-  const [submitError, setSubmitError] = useState<string| null>(null); // <-- added
+  const [submitError, setSubmitError] = useState<string | null>(null); // <-- added
 
   function set<K extends keyof typeof form>(k: K, v: any) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -26,7 +26,9 @@ export default function AddVetPage() {
     const e: Record<string, string> = {};
     if (form.name.trim().length < 2) e.name = "Name must be at least 2 characters.";
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Invalid email.";
-    if (form.phone && !/^[0-9\-+\s()]{7,}$/.test(form.phone)) e.phone = "Invalid phone.";
+    if (form.phone && !/^\(?\d{3}\)?[-\s.]?\d{3}[-\s.]?\d{4}$/.test(form.phone)) {
+      e.phone = "Phone must be in format 123-456-7890.";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -141,7 +143,7 @@ export default function AddVetPage() {
                   value={form.phone}
                   onChange={(e) => set("phone", e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
-                  placeholder="555-1004"
+                  placeholder="123-456-7890"
                 />
                 {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
               </div>

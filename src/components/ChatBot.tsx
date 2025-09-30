@@ -27,7 +27,7 @@ const ChatBot: React.FC = () => {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini", // ✅ switched to gpt-4o-mini
+          model: "gpt-3.5-turbo",
           messages: [
             { role: "system", content: "You are a helpful assistant for VetCare+." },
             { role: "user", content: userMessage },
@@ -36,22 +36,8 @@ const ChatBot: React.FC = () => {
         }),
       });
 
-      // ✅ Handle rate limit error
-      if (response.status === 429) {
-        setMessages((prev) => [
-          ...prev,
-          { sender: "bot", text: "⚠️ Rate limit hit. Please wait a few seconds and try again." }
-        ]);
-        setLoading(false);
-        return;
-      }
-
       const data = await response.json();
-      console.log("🔎 OpenAI raw response:", data);
-
-      const botReply =
-        data.choices?.[0]?.message?.content?.trim() ||
-        `⚠️ OpenAI error: ${data.error?.message || "Unknown issue"}`;
+      const botReply = data.choices?.[0]?.message?.content || "Sorry, I couldn’t respond.";
 
       // Add bot message
       setMessages((prev) => [...prev, { sender: "bot", text: botReply }]);

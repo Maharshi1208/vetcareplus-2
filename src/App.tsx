@@ -116,26 +116,33 @@ export default function App() {
           />
 
           {/* VET-only: medical */}
-          <Route
-            path="/health"
-            element={<><RequireRole allow={["VET"]} /><AppShell><HealthPage /></AppShell></>}
-          />
-          <Route
-            path="/pets/:id/add-medication"
-            element={<><RequireRole allow={["VET"]} /><AppShell><AddMedication /></AppShell></>}
-          />
-          <Route
-            path="/pets/:id/add-vaccine"
-            element={<><RequireRole allow={["VET"]} /><AppShell><AddVaccine /></AppShell></>}
-          />
-          <Route
-            path="/vaccines/:id/view"
-            element={<><RequireRole allow={["VET"]} /><AppShell><ViewVaccine /></AppShell></>}
-          />
-          <Route
-            path="/vaccines/:id/edit"
-            element={<><RequireRole allow={["VET"]} /><AppShell><EditVaccine /></AppShell></>}
-          />
+	  <Route
+  path="/health"
+  element={<><RequireRole allow={["VET"]} /><AppShell><HealthPage /></AppShell></>}
+/>
+<Route
+  path="/health/add-medication"
+  element={<><RequireRole allow={["VET"]} /><AppShell><AddMedication /></AppShell></>}
+/>
+<Route
+  path="/health/add-vaccine"
+  element={<><RequireRole allow={["VET"]} /><AppShell><AddVaccine /></AppShell></>}
+/>
+<Route
+  path="/vaccines/:id/view"
+  element={<><RequireRole allow={["VET"]} /><AppShell><ViewVaccine /></AppShell></>}
+	/>
+	<Route
+  	path="/vaccines/:id/edit"
+	  element={<><RequireRole allow={["VET"]} /><AppShell><EditVaccine /></AppShell></>}
+	/>
+
+
+
+
+
+
+
 
           {/* ADMIN-only: master data */}
           <Route
