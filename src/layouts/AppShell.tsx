@@ -21,11 +21,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen flex bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+    <div className="min-h-screen flex bg-gray-50 text-gray-900">
       {/* Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col border-r bg-white/80 dark:bg-gray-800/80 backdrop-blur-md">
+      <aside className="hidden md:flex w-64 flex-col border-r bg-white/80 backdrop-blur-md">
         {/* Logo */}
-        <div className="h-20 flex items-center px-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="h-20 flex items-center px-4 border-b border-gray-200">
           <img
             src={logo}
             alt="VetCare+"
@@ -44,7 +44,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   "relative flex items-center px-4 py-2 rounded-lg font-medium transition-colors duration-200",
                   isActive
                     ? "text-white"
-                    : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100",
+                    : "text-gray-700 hover:text-gray-900",
                 ].join(" ")
               }
             >
@@ -77,11 +77,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main column */}
       <div className="flex-1 flex flex-col">
         {/* Topbar */}
-        <header className="h-16 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4">
+        <header className="h-16 bg-white/80 backdrop-blur-md border-b border-gray-200 flex items-center justify-between px-4">
           <div className="relative flex-1 max-w-xl">
             <input
               placeholder="Search…"
-              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500/30"
+              className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-blue-500/30"
             />
           </div>
 
@@ -92,11 +92,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 logout();
                 navigate("/login");
               }}
-              className="text-sm font-medium text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-200"
+              className="text-sm font-medium text-blue-700 hover:text-blue-900"
             >
               Logout
             </button>
-            <span className="text-xs text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 px-2 py-1 rounded-lg">
+            <span className="text-xs text-gray-600 border border-gray-300 px-2 py-1 rounded-lg">
               {role ?? "—"}
             </span>
           </div>
