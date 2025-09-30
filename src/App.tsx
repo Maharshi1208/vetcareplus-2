@@ -40,6 +40,8 @@ import AddVaccine from "./pages/AddVaccine";
 import ViewVaccine from "./pages/ViewVaccine";
 import EditVaccine from "./pages/EditVaccine";
 
+import ResetPassword from "./pages/ResetPassword";   {/* ✅ Added import */}
+
 import ProtectedRoute from "./components/ProtectedRoute";
 import RequireRole from "./components/RequireRole";
 import Forbidden from "./pages/Forbidden";
@@ -59,6 +61,7 @@ export default function App() {
         {/* Public (no shell) */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/reset-password" element={<ResetPassword />} /> {/*  Added route */}
 
         {/* Everything below requires auth */}
         <Route element={<ProtectedRoute />}>
@@ -116,33 +119,26 @@ export default function App() {
           />
 
           {/* VET-only: medical */}
-	  <Route
-  path="/health"
-  element={<><RequireRole allow={["VET"]} /><AppShell><HealthPage /></AppShell></>}
-/>
-<Route
-  path="/health/add-medication"
-  element={<><RequireRole allow={["VET"]} /><AppShell><AddMedication /></AppShell></>}
-/>
-<Route
-  path="/health/add-vaccine"
-  element={<><RequireRole allow={["VET"]} /><AppShell><AddVaccine /></AppShell></>}
-/>
-<Route
-  path="/vaccines/:id/view"
-  element={<><RequireRole allow={["VET"]} /><AppShell><ViewVaccine /></AppShell></>}
-	/>
-	<Route
-  	path="/vaccines/:id/edit"
-	  element={<><RequireRole allow={["VET"]} /><AppShell><EditVaccine /></AppShell></>}
-	/>
-
-
-
-
-
-
-
+          <Route
+            path="/health"
+            element={<><RequireRole allow={["VET"]} /><AppShell><HealthPage /></AppShell></>}
+          />
+          <Route
+            path="/health/add-medication"
+            element={<><RequireRole allow={["VET"]} /><AppShell><AddMedication /></AppShell></>}
+          />
+          <Route
+            path="/health/add-vaccine"
+            element={<><RequireRole allow={["VET"]} /><AppShell><AddVaccine /></AppShell></>}
+          />
+          <Route
+            path="/vaccines/:id/view"
+            element={<><RequireRole allow={["VET"]} /><AppShell><ViewVaccine /></AppShell></>}
+          />
+          <Route
+            path="/vaccines/:id/edit"
+            element={<><RequireRole allow={["VET"]} /><AppShell><EditVaccine /></AppShell></>}
+          />
 
           {/* ADMIN-only: master data */}
           <Route

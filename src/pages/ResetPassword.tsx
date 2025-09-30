@@ -1,33 +1,34 @@
-// src/pages/Login.tsx
+// src/pages/ResetPassword.tsx
 import React from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import Input from "../components/ui/Input";
 import PasswordInput from "../components/ui/PasswordInput";
 import Button from "../components/ui/Button";
-import { useAuth } from "../context/AuthContext";
 import logo from "../assets/logofinal.png";
+import PasswordStrength from "../components/ui/PasswordStrength"; // ✅ New import
 
-// NEW: use your API helpers so token storage is centralized
-import { apiPost, setTokenFromAuthPayload } from "../services/api";
+// Validation schema
+const schema = z
+  .object({
+    email: z.string().email("Enter a valid email"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string().min(6, "Confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords do not match",
+  });
 
-const schema = z.object({
-  email: z.string().email("Enter a valid email"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
 type FormData = z.infer<typeof schema>;
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
-
-export default function Login() {
-  const navigate = useNavigate();
-  const { login } = useAuth();
-
+export default function ResetPassword() {
   const {
     register,
     handleSubmit,
+    watch, // Added watch for password
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -35,22 +36,9 @@ export default function Login() {
   });
 
   const onSubmit = async (data: FormData) => {
-    try {
-      // Use apiPost to keep error handling consistent
-      const resp = await apiPost<any>("/auth/login", data);
-
-      // Store token in localStorage under "access" (helper supports multiple shapes)
-      const token = setTokenFromAuthPayload(resp);
-      if (!token) throw new Error("Missing access token in response");
-
-      // Keep your existing app logic: tell AuthContext we’re logged in
-      await login(token);
-
-      navigate("/dashboard");
-    } catch (err: any) {
-      // apiPost already gives friendly messages via ApiError
-      alert(err?.message || "Login failed");
-    }
+    // UI-only for now
+    console.log("Reset password data:", data);
+    alert("Password reset request submitted (UI-only, no backend).");
   };
 
   return (
@@ -64,8 +52,10 @@ export default function Login() {
               className="h-58 w-auto object-contain"
             />
           </div>
-          <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
-          <p className="text-gray-600 text-sm">Welcome back to VetCare+</p>
+          <h1 className="text-2xl font-semibold text-gray-900">Reset Password</h1>
+          <p className="text-gray-600 text-sm">
+            Enter your email and new password
+          </p>
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
@@ -77,36 +67,35 @@ export default function Login() {
             {...register("email")}
           />
           <PasswordInput
-            label="Password"
+            label="New Password"
             placeholder="••••••••"
             error={errors.password?.message}
             {...register("password")}
           />
+          {/* Password Strength Indicator */}
+          <PasswordStrength password={watch("password") || ""} />
 
-          {/* ✅ New: Forgot Password link */}
-          <div className="flex justify-end">
-            <Link
-              to="/reset-password"
-              className="text-sm font-medium text-sky-700 hover:text-sky-900"
-            >
-              Forgot password?
-            </Link>
-          </div>
+          <PasswordInput
+            label="Confirm Password"
+            placeholder="••••••••"
+            error={errors.confirmPassword?.message}
+            {...register("confirmPassword")}
+          />
 
           <div className="pt-2">
             <Button type="submit" loading={isSubmitting} full>
-              Sign in
+              Reset Password
             </Button>
           </div>
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-700">
-          Don’t have an account?{" "}
+          Back to{" "}
           <Link
-            to="/register"
+            to="/login"
             className="font-medium text-sky-700 hover:text-sky-900"
           >
-            Create one
+            Login
           </Link>
         </p>
       </div>

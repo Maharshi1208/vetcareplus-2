@@ -1,3 +1,4 @@
+// src/pages/Register.tsx
 import React from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -7,6 +8,7 @@ import Input from "../components/ui/Input";
 import PasswordInput from "../components/ui/PasswordInput";
 import Button from "../components/ui/Button";
 import logo from "../assets/logofinal.png"; // ✅ Import logo
+import PasswordStrength from "../components/ui/PasswordStrength"; // ✅ New import
 
 const schema = z
   .object({
@@ -30,6 +32,7 @@ export default function Register() {
   const {
     register,
     handleSubmit,
+    watch, // ✅ Added watch for password
     formState: { errors, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema), mode: "onTouched" });
 
@@ -96,6 +99,9 @@ export default function Register() {
             error={errors.password?.message}
             {...register("password")}
           />
+          {/* ✅ Password Strength Indicator */}
+          <PasswordStrength password={watch("password") || ""} />
+          
           <PasswordInput
             label="Confirm password"
             placeholder="••••••••"

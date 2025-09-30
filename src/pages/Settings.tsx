@@ -1,135 +1,122 @@
-import React, { useState } from "react";
+// src/pages/Settings.tsx
+import React, { useState, useEffect } from "react";
+import Button from "../components/ui/Button";
 
 export default function SettingsPage() {
-  // UI-only local state
-  const [orgName, setOrgName] = useState("VetCare+ Clinic");
-  const [orgEmail, setOrgEmail] = useState("contact@vetcare.local");
-  const [orgPhone, setOrgPhone] = useState("(555) 123-4567");
-  const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
+  const [clinicName, setClinicName] = useState("VetCare+ Clinic");
+  const [contactEmail, setContactEmail] = useState("contact@vetcare.local");
+  const [phone, setPhone] = useState("(555) 123-4567");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
 
-  function onSaveProfile(e: React.FormEvent) {
-    e.preventDefault();
-    // UI-only: pretend to save
-    // eslint-disable-next-line no-alert
-    alert("Saved (UI-only)");
-  }
+  // ✅ Apply theme
+  const applyTheme = (t: "light" | "dark") => {
+    if (t === "dark") {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  };
 
-  function onSavePrefs(e: React.FormEvent) {
-    e.preventDefault();
-    // UI-only: pretend to save
-    // eslint-disable-next-line no-alert
-    alert(`Theme set to: ${theme} (UI-only)`);
-  }
+  // ✅ Load saved theme on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("theme") as "light" | "dark" | null;
+    if (saved) {
+      setTheme(saved);
+      applyTheme(saved);
+    }
+  }, []);
+
+  const handleProfileSave = () => {
+    alert("Profile saved (UI-only).");
+  };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="mb-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-gray-500">Manage clinic details and preferences (UI-only).</p>
-      </div>
-
+    <div className="space-y-6">
       {/* Organization Profile */}
-      <div className="rounded-2xl border bg-white shadow-sm">
-        <div className="border-b p-4">
-          <h2 className="text-base font-medium">Organization Profile</h2>
+      <section className="p-4 border rounded-lg bg-white dark:bg-gray-800">
+        <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+          Organization Profile
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Clinic Name
+            </label>
+            <input
+              value={clinicName}
+              onChange={(e) => setClinicName(e.target.value)}
+              className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Contact Email
+            </label>
+            <input
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
+              className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Phone
+            </label>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2"
+            />
+          </div>
         </div>
-        <form onSubmit={onSaveProfile} className="p-4 sm:p-6 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium">Clinic Name</label>
-              <input
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Contact Email</label>
-              <input
-                type="email"
-                value={orgEmail}
-                onChange={(e) => setOrgEmail(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Phone</label>
-              <input
-                value={orgPhone}
-                onChange={(e) => setOrgPhone(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
-              />
-            </div>
-          </div>
-
-          <div className="pt-2">
-            <button
-              type="submit"
-              className="w-full sm:w-auto rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-5 py-2 text-white shadow-sm hover:opacity-90"
-            >
-              Save Profile
-            </button>
-          </div>
-        </form>
-      </div>
+        <div className="mt-4">
+          <Button onClick={handleProfileSave}>Save Profile</Button>
+        </div>
+      </section>
 
       {/* Preferences */}
-      <div className="rounded-2xl border bg-white shadow-sm">
-        <div className="border-b p-4">
-          <h2 className="text-base font-medium">Preferences</h2>
+      <section className="p-4 border rounded-lg bg-white dark:bg-gray-800">
+        <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+          Preferences
+        </h2>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Theme
+          </label>
+          <select
+            value={theme}
+            onChange={(e) => {
+              const t = e.target.value as "light" | "dark";
+              setTheme(t);
+              applyTheme(t); // ✅ immediately apply theme
+            }}
+            className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2"
+          >
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
         </div>
-        <form onSubmit={onSavePrefs} className="p-4 sm:p-6 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium">Theme</label>
-              <select
-                value={theme}
-                onChange={(e) => setTheme(e.target.value as any)}
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-blue-400"
-              >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-                <option value="system">System</option>
-              </select>
-              <p className="mt-1 text-xs text-gray-500">
-                (UI-only) In a later step, we’ll hook this to Tailwind’s dark mode.
-              </p>
-            </div>
-          </div>
+        <div className="mt-4">
+          <Button onClick={() => applyTheme(theme)}>Save Preferences</Button>
+        </div>
+      </section>
 
-          <div className="pt-2">
-            <button
-              type="submit"
-              className="w-full sm:w-auto rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-5 py-2 text-white shadow-sm hover:opacity-90"
-            >
-              Save Preferences
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Danger Zone (placeholder) */}
-      <div className="rounded-2xl border bg-white shadow-sm">
-        <div className="border-b p-4">
-          <h2 className="text-base font-medium">Danger Zone</h2>
+      {/* Danger Zone */}
+      <section className="p-4 border rounded-lg bg-white dark:bg-gray-800">
+        <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+          Danger Zone
+        </h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Placeholder for data export/import, account deletion, etc. (UI-only).
+        </p>
+        <div className="flex gap-2">
+          <Button variant="secondary">Export data (UI-only)</Button>
+          <Button variant="secondary">Import data (UI-only)</Button>
+          <Button variant="danger">Delete account (disabled)</Button>
         </div>
-        <div className="p-4 sm:p-6">
-          <p className="text-sm text-gray-600">
-            Placeholder for data export/import, account deletion, etc. (UI-only).
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-white shadow-sm hover:opacity-90">
-              Export data (UI-only)
-            </button>
-            <button className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-white shadow-sm hover:opacity-90">
-              Import data (UI-only)
-            </button>
-            <button className="rounded-xl border px-4 py-2 text-rose-700 hover:bg-rose-50">
-              Delete account (disabled)
-            </button>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }
