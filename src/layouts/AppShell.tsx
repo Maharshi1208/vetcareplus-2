@@ -3,11 +3,23 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import logo from "../assets/logofinal.png";
 import { motion } from "framer-motion";
-import ChatBot from "../components/ChatBot"; // ✅ Added import
+import ChatBot from "../components/ChatBot"; // if you use it elsewhere, keep it
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { role, logout } = useAuth();
+
+  // --- Theme toggle (persisted) ---
+  const [theme, setTheme] = React.useState<"light" | "dark">(
+    (localStorage.getItem("theme") as "light" | "dark") || "light"
+  );
+
+  React.useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "dark") root.classList.add("dark");
+    else root.classList.remove("dark");
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   const navItems = [
     { name: "Dashboard", path: "/dashboard" },
@@ -21,16 +33,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen flex bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+    <div className="min-h-screen flex bg-background text-foreground">
       {/* Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col border-r bg-white/80 dark:bg-gray-800/80 backdrop-blur-md">
+      <aside className="hidden md:flex w-64 flex-col border-r bg-card/80 backdrop-blur-md">
         {/* Logo */}
-        <div className="h-20 flex items-center px-4 border-b border-gray-200 dark:border-gray-700">
-          <img
-            src={logo}
-            alt="VetCare+"
-            className="h-38 w-auto object-contain"
-          />
+        <div className="h-20 flex items-center px-4 border-b">
+          <img src={logo} alt="VetCare+" className="h-16 w-auto object-contain" />
         </div>
 
         {/* Navigation */}
@@ -43,8 +51,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 [
                   "relative flex items-center px-4 py-2 rounded-lg font-medium transition-colors duration-200",
                   isActive
-                    ? "text-white"
-                    : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100",
+                    ? "text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 ].join(" ")
               }
             >
@@ -53,17 +61,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   {isActive && (
                     <motion.span
                       layoutId="activeBackground"
-                      className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 shadow-md"
+                      className="absolute inset-0 rounded-lg bg-primary shadow-md"
                       transition={{ type: "spring", stiffness: 500, damping: 30 }}
                     />
                   )}
                   {!isActive && (
                     <motion.span
-                      whileHover={{
-                        scale: 1.03,
-                        backgroundColor: "rgba(0, 150, 255, 0.1)",
-                      }}
+                      whileHover={{ scale: 1.03 }}
                       className="absolute inset-0 rounded-lg"
+                      style={{ background: "hsla(var(--primary), 0.08)" }}
                     />
                   )}
                   <span className="relative">{item.name}</span>
@@ -77,28 +83,38 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main column */}
       <div className="flex-1 flex flex-col">
         {/* Topbar */}
-        <header className="h-16 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4">
+        <header className="h-16 bg-card/80 backdrop-blur-md border-b flex items-center justify-between px-4">
           <div className="relative flex-1 max-w-xl">
             <input
               placeholder="Search…"
-              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500/30"
+              className="w-full rounded-xl border bg-background text-foreground placeholder:text-muted-foreground text-sm outline-none focus:ring-2 focus:ring-ring focus:border-ring px-3 py-2"
             />
           </div>
 
-          <div className="ml-4 flex items-center gap-4">
+          <div className="ml-4 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+              className="text-sm font-medium px-3 py-1.5 rounded-lg bg-muted text-foreground hover:opacity-90"
+              title="Toggle theme"
+            >
+              {theme === "dark" ? "Light" : "Dark"}
+            </button>
+
+            <span className="text-xs px-2 py-1 rounded-lg border">
+              {role ?? "—"}
+            </span>
+
             <button
               type="button"
               onClick={() => {
                 logout();
                 navigate("/login");
               }}
-              className="text-sm font-medium text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-200"
+              className="text-sm font-medium text-primary hover:opacity-90"
             >
               Logout
             </button>
-            <span className="text-xs text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 px-2 py-1 rounded-lg">
-              {role ?? "—"}
-            </span>
           </div>
         </header>
 
