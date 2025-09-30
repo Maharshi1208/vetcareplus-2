@@ -84,7 +84,7 @@ export default function SettingsPage() {
           Danger Zone
         </h2>
         <p className="text-sm text-gray-600 mb-4">
-          Placeholder for data export/import, account deletion, etc. (UI-only).
+          Placeholder for data export/import, account deletion, etc. 
         </p>
         <div className="flex gap-2">
           <Button variant="secondary">Export data (UI-only)</Button>
