@@ -1,4 +1,4 @@
-// src/pages/PetsPage.tsx
+// src/pages/Pets.tsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import React, { useMemo, useState, useEffect } from "react";
 import { usePets } from "../context/PetsContext";

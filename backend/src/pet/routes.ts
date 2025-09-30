@@ -57,10 +57,12 @@ async function loadScopedPet(req: AuthedRequest, id: string) {
   return { error: null as null, pet };
 }
 
-// -------------------- NEW: Dropdown endpoint (ARRAY) --------------------
+// Common minimal owner selection used below
+const ownerSelect = { id: true, name: true, email: true } as const;
+
+// -------------------- Dropdown endpoint (ARRAY) --------------------
 // GET /pets/select?ownerId=me|<uuid>&includeArchived=false
 // - Returns ARRAY: [{ id, name, ownerId }]
-// - Defaults to archived=false for dropdowns
 router.get('/select', authRequired, async (req: AuthedRequest, res) => {
   const includeArchived = String(req.query.includeArchived ?? 'false') === 'true';
   const ownerIdParam = (req.query.ownerId as string | undefined) || '';
@@ -70,15 +72,13 @@ router.get('/select', authRequired, async (req: AuthedRequest, res) => {
   if (isAdmin(req)) {
     if (ownerIdParam === 'me') where.ownerId = req.user!.sub;
     else if (ownerIdParam) where.ownerId = ownerIdParam;
-    // else: all pets (respect archived filter)
+    // else: all pets
   } else if (req.user?.role === 'OWNER') {
-    // Owners are always scoped to themselves
     where.ownerId = req.user!.sub;
   } else if (isVet(req)) {
-    // For Vet, allow explicit scoping by ownerId; otherwise, do NOT broaden visibility
-    if (ownerIdParam === 'me') where.ownerId = req.user!.sub; // usually yields none, but preserves prior behavior
+    if (ownerIdParam === 'me') where.ownerId = req.user!.sub;
     else if (ownerIdParam) where.ownerId = ownerIdParam;
-    else where.ownerId = req.user!.sub; // preserve previous behavior (empty for vets)
+    else where.ownerId = req.user!.sub; // usually yields none for vets
   }
 
   const items = await prisma.pet.findMany({
@@ -94,11 +94,7 @@ router.get('/select', authRequired, async (req: AuthedRequest, res) => {
 // -------------------- Routes --------------------
 
 // GET /pets?includeArchived=false&ownerId=me|<uuid>
-// - **Non-breaking**: keeps original response { ok: true, pets }
-// - Adds optional ownerId scoping:
-//   * ADMIN: may scope to any ownerId or 'me'.
-//   * OWNER: may use 'me' (or omit), but cannot read others (403 if tries).
-//   * VET: preserves old behavior (effectively self -> none) unless explicitly scoped via /select.
+// Response: { ok: true, pets }  (now includes owner: {id,name,email})
 router.get('/', authRequired, async (req: AuthedRequest, res) => {
   const includeArchived = String(req.query.includeArchived ?? 'false') === 'true';
   const ownerIdParam = (req.query.ownerId as string | undefined) || '';
@@ -114,20 +110,20 @@ router.get('/', authRequired, async (req: AuthedRequest, res) => {
     if (ownerIdParam && ownerIdParam !== 'me') {
       return res.status(403).json({ ok: false, error: 'Forbidden' });
     }
-    // already scoped to self
   } else if (isVet(req)) {
-    // Preserve previous behavior for vets on this route (self-scoped -> usually empty)
-    // Use /pets/select for explicit ownerId filters from the UI.
+    // keep existing vet behavior on this endpoint
   }
 
   const pets = await prisma.pet.findMany({
     where,
     orderBy: { createdAt: 'desc' },
+    include: { owner: { select: ownerSelect } }, // ← include owner for table rendering
   });
+
   res.json({ ok: true, pets });
 });
 
-// POST /pets
+// POST /pets  (returns created pet with owner for immediate UI display)
 router.post('/', authRequired, async (req: AuthedRequest, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
@@ -137,9 +133,7 @@ router.post('/', authRequired, async (req: AuthedRequest, res) => {
 
   const pet = await prisma.pet.create({
     data: {
-      // ✅ use relation connect instead of ownerId scalar
-      owner: { connect: { id: ownerId } },
-
+      owner: { connect: { id: ownerId } }, // set relation
       name: data.name,
       species: data.species,
       breed: data.breed,
@@ -154,18 +148,24 @@ router.post('/', authRequired, async (req: AuthedRequest, res) => {
       neutered: data.neutered,
       notes: data.notes,
     },
+    include: { owner: { select: ownerSelect } }, // ← return owner details too
   });
 
   res.status(201).json({ ok: true, pet });
 });
 
-
-// GET /pets/:id
+// GET /pets/:id (returns pet with owner)
 router.get('/:id', authRequired, async (req: AuthedRequest, res) => {
   const { id } = req.params;
   const { error, pet } = await loadScopedPet(req, id);
   if (error || !pet) return res.status(404).json({ ok: false, error: 'Not found' });
-  res.json({ ok: true, pet });
+
+  const withOwner = await prisma.pet.findUnique({
+    where: { id: pet.id },
+    include: { owner: { select: ownerSelect } }, // ← include owner
+  });
+
+  res.json({ ok: true, pet: withOwner });
 });
 
 // PATCH /pets/:id
@@ -202,6 +202,7 @@ router.patch('/:id', authRequired, async (req: AuthedRequest, res) => {
       archived: data.archived ?? undefined,
       ...(isAdmin(req) && data.ownerId ? { ownerId: data.ownerId } : {}),
     },
+    include: { owner: { select: ownerSelect } }, // ← handy for immediate UI refresh
   });
   res.json({ ok: true, pet: updated });
 });

@@ -6,23 +6,26 @@ import React, {
   useState,
   useCallback,
 } from "react";
-import { API_URL, authHeaders } from "../services/api"; // ⬅️ NEW
+import { API_URL, authHeaders } from "../services/api";
 
 export type Pet = {
   id: string;
   name: string;
   species: string;
-  breed?: string;
-  dob?: string;
-  ageYears?: number;
-  ageMonths?: number;
-  ownerName?: string;
-  color?: string;
-  microchipId?: string;
-  weightKg?: number;
+  breed?: string | null;
+  dob?: string | null;
+  ageYears?: number | null;
+  ageMonths?: number | null;
+  ownerName?: string | null; // UI-facing convenience
+  color?: string | null;
+  microchipId?: string | null;
+  weightKg?: number | null;
   vaccinated?: boolean;
   neutered?: boolean;
-  notes?: string;
+  notes?: string | null;
+
+  // When backend includes relations (non-breaking)
+  owner?: { id: string; name?: string | null; email?: string | null } | null;
 };
 
 type PetsContextValue = {
@@ -37,6 +40,14 @@ type PetsContextValue = {
 
 const PetsContext = createContext<PetsContextValue | undefined>(undefined);
 
+// Normalize server pet → ensure ownerName is present for UI
+function normalizePet(p: any): Pet {
+  return {
+    ...p,
+    ownerName: p?.owner?.name ?? p?.ownerName ?? null,
+  };
+}
+
 export function PetsProvider({ children }: { children: React.ReactNode }) {
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(false);
@@ -49,17 +60,18 @@ export function PetsProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(`${API_URL}/pets`, {
         headers: {
           "Content-Type": "application/json",
-          ...authHeaders(), // ⬅️ uses 'access' (and falls back)
+          ...authHeaders(),
         },
         signal,
       });
 
-      // tolerate both shapes: [] or { pets: [] }
       const body = await res.json();
       if (res.ok) {
-        if (Array.isArray(body)) setPets(body as Pet[]);
-        else if (Array.isArray(body?.pets)) setPets(body.pets as Pet[]);
-        else {
+        if (Array.isArray(body)) {
+          setPets(body.map(normalizePet));
+        } else if (Array.isArray(body?.pets)) {
+          setPets(body.pets.map(normalizePet));
+        } else {
           setPets([]);
           console.error("Unexpected pets response:", body);
         }
@@ -68,7 +80,9 @@ export function PetsProvider({ children }: { children: React.ReactNode }) {
         setError(body?.error || `Error ${res.status}`);
       }
     } catch (err: any) {
-      if (err.name !== "AbortError") setError(err.message || "Failed to load pets");
+      if (err?.name !== "AbortError") {
+        setError(err?.message || "Failed to load pets");
+      }
     } finally {
       setLoading(false);
     }
@@ -80,15 +94,15 @@ export function PetsProvider({ children }: { children: React.ReactNode }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...authHeaders(), // ⬅️
+          ...authHeaders(),
         },
         body: JSON.stringify(data),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error || "Failed to add pet");
-      const newPet = body?.pet ?? body;
+      const newPet = normalizePet(body?.pet ?? body);
       setPets((old) => [newPet, ...old]);
-      return newPet as Pet;
+      return newPet;
     } catch (err) {
       console.error("addPet error:", err);
       return null;
@@ -97,20 +111,20 @@ export function PetsProvider({ children }: { children: React.ReactNode }) {
 
   const updatePet = useCallback(async (id: string, data: Partial<Pet>) => {
     try {
-      // If your backend expects PATCH (common), change method to "PATCH"
+      // Backend uses PATCH /pets/:id
       const res = await fetch(`${API_URL}/pets/${id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          ...authHeaders(), // ⬅️
+          ...authHeaders(),
         },
         body: JSON.stringify(data),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error || "Failed to update pet");
-      const updatedPet = body?.pet ?? body;
+      const updatedPet = normalizePet(body?.pet ?? body);
       setPets((old) => old.map((p) => (p.id === id ? { ...p, ...updatedPet } : p)));
-      return updatedPet as Pet;
+      return updatedPet;
     } catch (err) {
       console.error("updatePet error:", err);
       return null;
@@ -123,10 +137,13 @@ export function PetsProvider({ children }: { children: React.ReactNode }) {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          ...authHeaders(), // ⬅️
+          ...authHeaders(),
         },
       });
-      if (!res.ok) throw new Error("Failed to delete pet");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || "Failed to delete pet");
+      }
       setPets((old) => old.filter((p) => p.id !== id));
     } catch (err) {
       console.error("removePet error:", err);
