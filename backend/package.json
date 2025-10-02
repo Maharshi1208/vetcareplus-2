@@ -10,8 +10,9 @@
     "start": "node dist/index.js",
 
     "test": "npm run test:unit && npm run test:int",
-    "test:unit": "jest \"tests/**/*.unit.test.ts\" --config ./jest.config.ts --passWithNoTests",
-    "test:int": "jest \"tests/**/*.int.test.ts\" --config ./jest.config.ts --runInBand --detectOpenHandles",
+
+    "test:unit": "jest --config ./jest.config.ts --passWithNoTests --ci --reporters=default --testPathPattern=\".*\\\\.unit\\\\.test\\\\.ts$\"",
+    "test:int": "jest --config ./jest.config.ts --runInBand --detectOpenHandles --ci --reporters=default --testPathPattern=\".*\\\\.int\\\\.test\\\\.ts$\"",
     "coverage": "npm run test:int -- --coverage",
 
     "db:test:reset": "prisma migrate reset --force && prisma generate",
