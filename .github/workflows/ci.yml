@@ -7,6 +7,14 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      TZ: UTC
+      NODE_ENV: test
+      CORS_ORIGIN: http://localhost:5173
+      JWT_SECRET: ci_test_secret_please_change
+      SMTP_FROM: noreply@ci.local
+      DATABASE_URL: postgresql://vc_user:vc_pass@localhost:5432/vetcare_test?schema=public
+
     services:
       postgres:
         image: postgres:15
@@ -17,36 +25,51 @@ jobs:
         ports: ["5432:5432"]
         options: >-
           --health-cmd="pg_isready -U vc_user -d vetcare_test"
-          --health-interval=5s --health-timeout=5s --health-retries=20
-
-    env:
-      DATABASE_URL: postgresql://vc_user:vc_pass@localhost:5432/vetcare_test?schema=public
-      NODE_ENV: test
-      CORS_ORIGIN: http://localhost:5173
-      JWT_SECRET: ci_test_secret_please_change
-      SMTP_FROM: noreply@ci.local
+          --health-interval=5s --health-timeout=5s --health-retries=30
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
-        with: { node-version: 22 }
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
       - name: Install deps
         working-directory: backend
         run: npm ci
-      - name: Prepare DB (migrate + generate)
+
+      # (optional but makes logs clearer)
+      - name: Show versions
+        working-directory: backend
+        run: |
+          node -v
+          npm -v
+          npx prisma -v
+
+      # wait a tiny bit even after healthcheck, sometimes runner starts instantly
+      - name: Extra DB wait
+        run: sleep 3
+
+      - name: Prepare DB (migrate reset + generate)
         working-directory: backend
         run: |
           npx prisma migrate reset --force
           npx prisma generate
+
       - name: Unit tests
         working-directory: backend
-        run: npm run test:unit
+        run: npm run test:unit -- --ci --reporters=default
+
       - name: Integration tests
         working-directory: backend
-        run: npm run test:int -- --coverage
-      - name: Upload coverage
+        run: npm run test:int -- --ci --runInBand --detectOpenHandles --coverage --reporters=default
+
+      - name: Upload coverage (ignore if missing)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-backend
           path: backend/coverage
+          if-no-files-found: ignore

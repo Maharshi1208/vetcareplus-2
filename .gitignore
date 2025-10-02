@@ -23,3 +23,26 @@ infra/*.csv
 pnpm-lock.yaml
 backend/pnpm-lock.yaml
 backend/pnpm-workspace.yaml
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Env files / secrets
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Build outputs
+dist/
+coverage/
+**/coverage/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Windows ADS artifacts
+*Zone.Identifier
+*:*Zone.Identifier

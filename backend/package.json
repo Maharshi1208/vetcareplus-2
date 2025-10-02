@@ -3,13 +3,22 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts",
+
+    "test": "npm run test:unit && npm run test:int",
+    "test:unit": "jest \"tests/**/*.unit.test.ts\" --config ./jest.config.ts --passWithNoTests",
+    "test:int": "jest \"tests/**/*.int.test.ts\" --config ./jest.config.ts --runInBand --detectOpenHandles",
+    "coverage": "npm run test:int -- --coverage",
+
+    "db:test:reset": "prisma migrate reset --force && prisma generate",
+
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:reset": "prisma migrate reset --force",
     "prisma:studio": "prisma studio",
     "prisma:seed": "prisma db seed"
   },
@@ -52,7 +61,6 @@
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   },
-  "type": "module",
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   }
