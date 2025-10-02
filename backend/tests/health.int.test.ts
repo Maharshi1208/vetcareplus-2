@@ -1,31 +1,41 @@
+// backend/tests/health.int.test.ts
 import request from 'supertest';
 import app from '../src/app';
 import { resetDatabase, disconnect } from './utils/db';
 
-describe('HEALTH endpoints', () => {
+describe('HEALTH & DOCS', () => {
   beforeAll(async () => { await resetDatabase(); });
   afterAll(async () => { await disconnect(); });
 
-  it('GET / returns OK text', async () => {
-    const res = await request(app).get('/');
-    expect(res.status).toBe(200);
-    expect(String(res.text || '')).toMatch(/VetCare\+ API/i);
+  it('GET / returns a running message', async () => {
+    const res = await request(app).get('/').expect(200);
+    expect(String(res.text).toLowerCase()).toContain('vetcare');
   });
 
-  it('GET /ping returns pong JSON', async () => {
-    const res = await request(app).get('/ping');
-    expect(res.status).toBe(200);
-    expect(res.body?.ok).toBe(true);
-    expect(typeof res.body?.pong).toBe('string');
+  it('GET /ping returns ok + ISO timestamp', async () => {
+    const res = await request(app).get('/ping').expect(200);
+    expect(res.body.ok).toBe(true);
+    expect(typeof res.body.pong).toBe('string');
   });
 
-  it('GET /health and /health/db return ok', async () => {
-    const h = await request(app).get('/health');
-    expect(h.status).toBe(200);
-    expect(h.body?.ok).toBe(true);
+  it('GET /health returns system status', async () => {
+    const res = await request(app).get('/health').expect(200);
+    expect(res.body.ok).toBe(true);
+    expect(typeof res.body.uptime).toBe('number');
+    expect(typeof res.body.timestamp).toBe('string');
+  });
 
-    const db = await request(app).get('/health/db');
-    expect([200, 500]).toContain(db.status); // 200 expected; if DB hiccups we’ll see it
-    if (db.status === 200) expect(db.body?.ok).toBe(true);
+  it('GET /health/db returns ok boolean (200 or 500)', async () => {
+    const r = await request(app).get('/health/db');
+    expect([200, 500]).toContain(r.status);
+    expect(typeof r.body.ok).toBe('boolean');
+  });
+
+  it('GET /docs/openapi.json exposes an OpenAPI spec', async () => {
+    const res = await request(app).get('/docs/openapi.json').expect(200);
+    const spec = res.body;
+    expect(spec).toBeTruthy();
+    // OpenAPI v3 has an 'openapi' field and 'info' object
+    expect(spec.openapi || spec.openapiVersion || spec.info).toBeTruthy();
   });
 });

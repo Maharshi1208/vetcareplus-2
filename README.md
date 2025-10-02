@@ -1,3 +1,5 @@
+
+
 # VetCare+ (Capstone)
 
 Mono-repo: one branch (`main`) only.
@@ -9,3 +11,5 @@ Mono-repo: one branch (`main`) only.
 How to work:
 - Commit/PRs to `main` only (small commits, clear messages).
 - No feature branches for this project (avoid merge pain).
+
+![CI](https://github.com/Maharshi1208/vetcareplus-2/actions/workflows/ci.yml/badge.svg?branch=main)
