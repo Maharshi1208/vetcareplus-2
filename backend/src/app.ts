@@ -1,5 +1,7 @@
 // backend/src/app.ts
-import 'dotenv/config';
+// Load .env.test for tests, .env for everything else
+import { config as loadEnv } from 'dotenv';
+loadEnv({ path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env' });
 
 import express from 'express';
 import cors from 'cors';
