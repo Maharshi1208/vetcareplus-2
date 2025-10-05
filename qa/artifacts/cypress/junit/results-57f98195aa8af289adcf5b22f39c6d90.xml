@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="3.248" tests="1" failures="0">
+  <testsuite name="Root Suite" timestamp="2025-10-04T19:33:02" tests="0" file="cypress/e2e/dashboard.cy.ts" time="0.000" failures="0">
+  </testsuite>
+  <testsuite name="Dashboard smoke" timestamp="2025-10-04T19:33:02" tests="1" time="3.244" failures="0">
+    <testcase name="Dashboard smoke loads the home page" time="3.196" classname="loads the home page">
+    </testcase>
+  </testsuite>
+</testsuites>

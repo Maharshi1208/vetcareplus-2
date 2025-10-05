@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="0.231" tests="1" failures="1">
+  <testsuite name="Root Suite" timestamp="2025-10-04T23:50:18" tests="0" file="cypress/e2e/owner-details.navigation.cy.ts" time="0.000" failures="0">
+  </testsuite>
+  <testsuite name="Owner Details – navigation smoke" timestamp="2025-10-04T23:50:18" tests="1" time="0.229" failures="1">
+    <testcase name="Owner Details – navigation smoke opens the first owner from the list and lands on details page (or gracefully passes if none exist)" time="0.000" classname="opens the first owner from the list and lands on details page (or gracefully passes if none exist)">
+      <failure message="cy.findByRole(...).then(...).catch is not a function" type="TypeError"><![CDATA[TypeError: cy.findByRole(...).then(...).catch is not a function
+    at loginIfNeeded (webpack://frontend/./cypress/e2e/owner-details.navigation.cy.ts:14:11)
+    at Context.eval (webpack://frontend/./cypress/e2e/owner-details.navigation.cy.ts:25:4)
+    at runnable.fn (http://localhost:5173/__cypress/runner/cypress_runner.js:141863:19)
+    at callFn (http://localhost:5173/__cypress/runner/cypress_runner.js:160932:21)
+    at Runnable.run (http://localhost:5173/__cypress/runner/cypress_runner.js:160919:7)
+    at <unknown> (http://localhost:5173/__cypress/runner/cypress_runner.js:167014:30)
+    at PassThroughHandlerContext.finallyHandler (http://localhost:5173/__cypress/runner/cypress_runner.js:4042:23)
+    at PassThroughHandlerContext.tryCatcher (http://localhost:5173/__cypress/runner/cypress_runner.js:1777:23)
+    at Promise._settlePromiseFromHandler (http://localhost:5173/__cypress/runner/cypress_runner.js:1489:31)]]></failure>
+    </testcase>
+  </testsuite>
+</testsuites>

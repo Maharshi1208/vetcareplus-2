@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="10.551" tests="1" failures="1">
+  <testsuite name="Root Suite" timestamp="2025-10-04T22:45:03" tests="0" file="cypress/e2e/pet-details.navigation.cy.ts" time="0.000" failures="0">
+  </testsuite>
+  <testsuite name="Pet Details – navigation smoke" timestamp="2025-10-04T22:45:03" tests="1" time="10.549" failures="1">
+    <testcase name="Pet Details – navigation smoke opens the first pet from the list and lands on details page" time="0.000" classname="opens the first pet from the list and lands on details page">
+      <failure message="Timed out retrying after 4000ms: Expected to find content: &apos;/^view$/i&apos; within the element: &lt;a.font-medium.text-sky-700.hover:text-sky-900&gt; but never did." type="AssertionError"><![CDATA[AssertionError: Timed out retrying after 4000ms: Expected to find content: '/^view$/i' within the element: <a.font-medium.text-sky-700.hover:text-sky-900> but never did.
+    at Context.eval (webpack://frontend/./cypress/e2e/pet-details.navigation.cy.ts:33:7)]]></failure>
+    </testcase>
+  </testsuite>
+</testsuites>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="5.410" tests="1" failures="0">
+  <testsuite name="Root Suite" timestamp="2025-10-04T21:09:46" tests="0" file="cypress/e2e/add-pet.validation.cy.ts" time="0.000" failures="0">
+  </testsuite>
+  <testsuite name="Add Pet – basic validation (safe)" timestamp="2025-10-04T21:09:46" tests="1" time="5.406" failures="0">
+    <testcase name="Add Pet – basic validation (safe) keeps you on /pets/add when required fields are empty" time="5.363" classname="keeps you on /pets/add when required fields are empty">
+    </testcase>
+  </testsuite>
+</testsuites>

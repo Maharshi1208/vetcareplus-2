@@ -1,0 +1,457 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="8.704" tests="1" failures="1">
+  <testsuite name="Root Suite" timestamp="2025-10-04T23:59:07" tests="0" file="cypress/e2e/owner-details.navigation.cy.ts" time="0.000" failures="0">
+  </testsuite>
+  <testsuite name="Owner Details – navigation smoke" timestamp="2025-10-04T23:59:07" tests="1" time="8.701" failures="1">
+    <testcase name="Owner Details – navigation smoke opens the first owner from the list and lands on details page (or passes if none exist)" time="0.000" classname="opens the first owner from the list and lands on details page (or passes if none exist)">
+      <failure message="Timed out retrying after 4000ms: Found multiple elements with the text of: /password/i
+
+Here are the matching elements:
+
+Ignored nodes: comments, script, style
+&lt;input
+  class=&quot;w-full rounded-lg border bg-white px-3 py-2 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 border-gray-300 &quot;
+  name=&quot;password&quot;
+  placeholder=&quot;••••••••&quot;
+  type=&quot;password&quot;
+/&gt;
+
+Ignored nodes: comments, script, style
+&lt;button
+  aria-label=&quot;Show password&quot;
+  class=&quot;absolute inset-y-0 right-0 px-3 text-xs text-gray-600 hover:text-gray-900&quot;
+  type=&quot;button&quot;
+&gt;
+  Show
+&lt;/button&gt;
+
+(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+Ignored nodes: comments, script, style
+&lt;html
+  lang=&quot;en&quot;
+&gt;
+  &lt;head&gt;
+     
+    
+    
+    
+
+    
+    
+
+    
+    &lt;meta
+      charset=&quot;UTF-8&quot;
+    /&gt;
+    
+    
+    &lt;link
+      href=&quot;/vite.svg&quot;
+      rel=&quot;icon&quot;
+      type=&quot;image/svg+xml&quot;
+    /&gt;
+    
+    
+    &lt;meta
+      content=&quot;width=device-width, initial-scale=1.0&quot;
+      name=&quot;viewport&quot;
+    /&gt;
+    
+    
+    &lt;title&gt;
+      Vite + React + TS
+    &lt;/title&gt;
+    
+  
+    &lt;link
+      href=&quot;https://fonts.googleapis.com/icon?family=Material+Icons&quot;
+      rel=&quot;stylesheet&quot;
+      type=&quot;text/css&quot;
+    /&gt;
+    &lt;link
+      href=&quot;https://fonts.googleapis.com/css?family=Roboto_old&quot;
+      rel=&quot;stylesheet&quot;
+      type=&quot;text/css&quot;
+    /&gt;
+  &lt;/head&gt;
+  
+  
+  &lt;body&gt;
+    
+    
+    &lt;div
+      id=&quot;root&quot;
+    &gt;
+      &lt;div
+        class=&quot;min-h-screen bg-gradient-to-br from-sky-500 to-emerald-500 grid place-items-center px-4&quot;
+      &gt;
+        &lt;div
+          class=&quot;w-full max-w-md rounded-2xl border border-white/40 bg-white/85 backdrop-blur-sm shadow-soft p-6&quot;
+        &gt;
+          &lt;div
+            class=&quot;mb-2 text-center&quot;
+          &gt;
+            &lt;div
+              class=&quot;flex justify-center mb-1&quot;
+            &gt;
+              &lt;img
+                alt=&quot;VetCare+&quot;
+                class=&quot;h-58 w-auto object-contain&quot;
+                src=&quot;/src/assets/logofinal.png&quot;
+              /&gt;
+            &lt;/div&gt;
+            &lt;h1
+              class=&quot;text-2xl font-semibold text-gray-900&quot;
+            &gt;
+              Sign in
+            &lt;/h1&gt;
+            &lt;p
+              class=&quot;text-gray-600 text-sm&quot;
+            &gt;
+              Welcome back to VetCare+
+            &lt;/p&gt;
+          &lt;/div&gt;
+          &lt;form
+            class=&quot;space-y-4&quot;
+          &gt;
+            &lt;label
+              class=&quot;block space-y-1&quot;
+            &gt;
+              &lt;span
+                class=&quot;text-sm text-gray-700&quot;
+              &gt;
+                Email
+              &lt;/span&gt;
+              &lt;input
+                class=&quot;w-full rounded-lg border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 border-gray-300 &quot;
+                name=&quot;email&quot;
+                placeholder=&quot;you@example.com&quot;
+                type=&quot;email&quot;
+              /&gt;
+            &lt;/label&gt;
+            &lt;label
+              class=&quot;block space-y-1&quot;
+            &gt;
+              &lt;span
+                class=&quot;text-sm text-gray-700&quot;
+              &gt;
+                Password
+              &lt;/span&gt;
+              &lt;div
+                class=&quot;relative&quot;
+              &gt;
+                &lt;input
+                  class=&quot;w-full rounded-lg border bg-white px-3 py-2 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 border-gray-300 &quot;
+                  name=&quot;password&quot;
+                  placeholder=&quot;••••••••&quot;
+                  type=&quot;password&quot;
+                /&gt;
+                &lt;button
+                  aria-label=&quot;Show password&quot;
+                  class=&quot;absolute inset-y-0 right-0 px-3 text-xs text-gray-600 hover:text-gray-900&quot;
+                  type=&quot;button&quot;
+                &gt;
+                  Show
+                &lt;/button&gt;
+              &lt;/div&gt;
+            &lt;/label&gt;
+            &lt;div
+              class=&quot;flex justify-end&quot;
+            &gt;
+              &lt;a
+                class=&quot;text-sm font-medium text-sky-700 hover:text-sky-900&quot;
+                data-discover=&quot;true&quot;
+                href=&quot;/reset-password&quot;
+              &gt;
+                Forgot password?
+              &lt;/a&gt;
+            &lt;/div&gt;
+            &lt;div
+              class=&quot;pt-2&quot;
+            &gt;
+              &lt;button
+                class=&quot;inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 text-white bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-600 hover:to-emerald-600 focus:ring-sky-300 w-full  &quot;
+                type=&quot;submit&quot;
+              &gt;
+                Sign in
+              &lt;/button&gt;
+            &lt;/div&gt;
+          &lt;/form&gt;
+          &lt;p
+            class=&quot;mt-6 text-center text-sm text-gray-700&quot;
+          &gt;
+            Don’t have an account?
+             
+            &lt;a
+              class=&quot;font-medium text-sky-700 hover:text-sky-900&quot;
+              data-discover=&quot;true&quot;
+              href=&quot;/register&quot;
+            &gt;
+              Create one
+            &lt;/a&gt;
+          &lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div
+        data-rht-toaster=&quot;&quot;
+        style=&quot;position: fixed; z-index: 9999; inset: 16px; pointer-events: none;&quot;
+      /&gt;
+    &lt;/div&gt;
+    
+    
+    
+
+    
+    
+    
+    
+    
+    &lt;df-messenger
+      agent-id=&quot;c9231277-eab5-4000-8994-84155e33df6b&quot;
+      api-uri=&quot;https://dialogflow.cloud.google.com/v1/integrations/messenger/webhook&quot;
+      chat-title=&quot;VetCare+ Assistant&quot;
+      language-code=&quot;en&quot;
+      session-id=&quot;dfMessenger-58162648&quot;
+    /&gt;
+    
+
+    
+    
+    
+    
+  
+
+
+  &lt;/body&gt;
+&lt;/html&gt;..." type="AssertionError"><![CDATA[AssertionError: Timed out retrying after 4000ms: Found multiple elements with the text of: /password/i
+
+Here are the matching elements:
+
+Ignored nodes: comments, script, style
+<input
+  class="w-full rounded-lg border bg-white px-3 py-2 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 border-gray-300 "
+  name="password"
+  placeholder="••••••••"
+  type="password"
+/>
+
+Ignored nodes: comments, script, style
+<button
+  aria-label="Show password"
+  class="absolute inset-y-0 right-0 px-3 text-xs text-gray-600 hover:text-gray-900"
+  type="button"
+>
+  Show
+</button>
+
+(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+Ignored nodes: comments, script, style
+<html
+  lang="en"
+>
+  <head>
+     
+    
+    
+    
+
+    
+    
+
+    
+    <meta
+      charset="UTF-8"
+    />
+    
+    
+    <link
+      href="/vite.svg"
+      rel="icon"
+      type="image/svg+xml"
+    />
+    
+    
+    <meta
+      content="width=device-width, initial-scale=1.0"
+      name="viewport"
+    />
+    
+    
+    <title>
+      Vite + React + TS
+    </title>
+    
+  
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css?family=Roboto_old"
+      rel="stylesheet"
+      type="text/css"
+    />
+  </head>
+  
+  
+  <body>
+    
+    
+    <div
+      id="root"
+    >
+      <div
+        class="min-h-screen bg-gradient-to-br from-sky-500 to-emerald-500 grid place-items-center px-4"
+      >
+        <div
+          class="w-full max-w-md rounded-2xl border border-white/40 bg-white/85 backdrop-blur-sm shadow-soft p-6"
+        >
+          <div
+            class="mb-2 text-center"
+          >
+            <div
+              class="flex justify-center mb-1"
+            >
+              <img
+                alt="VetCare+"
+                class="h-58 w-auto object-contain"
+                src="/src/assets/logofinal.png"
+              />
+            </div>
+            <h1
+              class="text-2xl font-semibold text-gray-900"
+            >
+              Sign in
+            </h1>
+            <p
+              class="text-gray-600 text-sm"
+            >
+              Welcome back to VetCare+
+            </p>
+          </div>
+          <form
+            class="space-y-4"
+          >
+            <label
+              class="block space-y-1"
+            >
+              <span
+                class="text-sm text-gray-700"
+              >
+                Email
+              </span>
+              <input
+                class="w-full rounded-lg border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 border-gray-300 "
+                name="email"
+                placeholder="you@example.com"
+                type="email"
+              />
+            </label>
+            <label
+              class="block space-y-1"
+            >
+              <span
+                class="text-sm text-gray-700"
+              >
+                Password
+              </span>
+              <div
+                class="relative"
+              >
+                <input
+                  class="w-full rounded-lg border bg-white px-3 py-2 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 border-gray-300 "
+                  name="password"
+                  placeholder="••••••••"
+                  type="password"
+                />
+                <button
+                  aria-label="Show password"
+                  class="absolute inset-y-0 right-0 px-3 text-xs text-gray-600 hover:text-gray-900"
+                  type="button"
+                >
+                  Show
+                </button>
+              </div>
+            </label>
+            <div
+              class="flex justify-end"
+            >
+              <a
+                class="text-sm font-medium text-sky-700 hover:text-sky-900"
+                data-discover="true"
+                href="/reset-password"
+              >
+                Forgot password?
+              </a>
+            </div>
+            <div
+              class="pt-2"
+            >
+              <button
+                class="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 text-white bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-600 hover:to-emerald-600 focus:ring-sky-300 w-full  "
+                type="submit"
+              >
+                Sign in
+              </button>
+            </div>
+          </form>
+          <p
+            class="mt-6 text-center text-sm text-gray-700"
+          >
+            Don’t have an account?
+             
+            <a
+              class="font-medium text-sky-700 hover:text-sky-900"
+              data-discover="true"
+              href="/register"
+            >
+              Create one
+            </a>
+          </p>
+        </div>
+      </div>
+      <div
+        data-rht-toaster=""
+        style="position: fixed; z-index: 9999; inset: 16px; pointer-events: none;"
+      />
+    </div>
+    
+    
+    
+
+    
+    
+    
+    
+    
+    <df-messenger
+      agent-id="c9231277-eab5-4000-8994-84155e33df6b"
+      api-uri="https://dialogflow.cloud.google.com/v1/integrations/messenger/webhook"
+      chat-title="VetCare+ Assistant"
+      language-code="en"
+      session-id="dfMessenger-58162648"
+    />
+    
+
+    
+    
+    
+    
+  
+
+
+  </body>
+</html>...
+    at Context.eval (webpack://frontend/./cypress/e2e/owner-details.navigation.cy.ts:15:9)
+    at getRet (http://localhost:5173/__cypress/runner/cypress_runner.js:121618:20)
+    at tryCatcher (http://localhost:5173/__cypress/runner/cypress_runner.js:1777:23)
+    at Promise.attempt.Promise.try (http://localhost:5173/__cypress/runner/cypress_runner.js:4285:29)
+    at Context.thenFn (http://localhost:5173/__cypress/runner/cypress_runner.js:121629:66)
+    at Context.then (http://localhost:5173/__cypress/runner/cypress_runner.js:121880:21)
+    at wrapped (http://localhost:5173/__cypress/runner/cypress_runner.js:141596:19)]]></failure>
+    </testcase>
+  </testsuite>
+</testsuites>

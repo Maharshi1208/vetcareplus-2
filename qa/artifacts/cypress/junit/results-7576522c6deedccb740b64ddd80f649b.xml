@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="9.199" tests="1" failures="0">
+  <testsuite name="Root Suite" timestamp="2025-10-04T23:20:45" tests="0" file="cypress/e2e/pet-details.navigation.cy.ts" time="0.000" failures="0">
+  </testsuite>
+  <testsuite name="Pet Details – navigation smoke" timestamp="2025-10-04T23:20:45" tests="1" time="9.194" failures="0">
+    <testcase name="Pet Details – navigation smoke opens the first pet from the list and lands on details page (or gracefully passes if none exist)" time="8.923" classname="opens the first pet from the list and lands on details page (or gracefully passes if none exist)">
+    </testcase>
+  </testsuite>
+</testsuites>
