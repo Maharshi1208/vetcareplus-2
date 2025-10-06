@@ -1,65 +1,80 @@
-/// <reference types="cypress" />
-/// <reference types="@testing-library/cypress" />
+// cypress/e2e/owner-details.navigation.cy.ts
 
-// NOTE: Do NOT import '@testing-library/cypress/add-commands' here;
-// it's already loaded globally from cypress/support/e2e.ts
-
-/** Logs in only if the Sign in screen is shown. */
+/** Log in only if the Sign-in screen is shown. */
 function loginIfNeeded() {
-  cy.findByRole("heading", { name: /sign in/i, timeout: 500 })
-    .then(($h1) => {
-      if ($h1 && $h1.length) {
-        cy.findByLabelText(/email/i).clear().type("admin@vetcare.local");
-        cy.findByLabelText(/^password$/i).clear().type("admin123");
-        cy.findByRole("button", { name: /sign in/i }).click();
-      }
-    })
-    .catch(() => {
-      // not on login, continue silently
-    });
+  cy.findByRole('heading', { name: /sign in/i, timeout: 800 }).then(($h) => {
+    if (!$h.length) return; // already authenticated
+    cy.get('input[name="email"]').clear().type(Cypress.env('USER_EMAIL'));
+    cy.get('input[name="password"]')
+      .clear()
+      .type(Cypress.env('USER_PASSWORD'), { log: false });
+    cy.findByRole('button', { name: /sign in/i }).click();
+    cy.findByRole('link', { name: /^owners$/i, timeout: 10000 }).should('be.visible');
+  });
 }
 
-describe("Owner Details – navigation smoke", () => {
-  it("opens the first owner from the list and lands on details page (or passes if none exist)", () => {
-    // Go to owners list
-    cy.visit("/owners");
-
-    // If we got redirected to login, log in first
+describe('Owner Details – navigation smoke', () => {
+  it('opens the first owner, then opens their first pet and lands on pet details', () => {
+    // Start safe, authenticate if needed
+    cy.visit('/');
     loginIfNeeded();
 
-    // Some apps redirect to /dashboard after login. Ensure we're back on /owners.
-    cy.url().then((u) => {
-      if (u.includes("/dashboard")) {
-        cy.visit("/owners");
+    // Navigate via UI to Owners list
+    cy.findByRole('link', { name: /^owners$/i, timeout: 10000 }).click();
+    cy.location('pathname', { timeout: 10000 }).should('eq', '/owners');
+    cy.screenshot('owners-list');
+
+    // Ensure a table exists and inspect rows
+    cy.get('table, [role="table"]', { timeout: 10000 }).should('exist');
+    cy.get('tbody tr').then(($rows) => {
+      if ($rows.length === 0) {
+        cy.log('No owners present — skipping details navigation.');
+        return;
       }
-    });
 
-    // Optional: sanity check we are on Owners page (don’t fail if heading differs)
-    cy.findByRole("heading", { name: /^owners$/i, timeout: 1000 })
-      .should("exist")
-      .catch(() => { /* ignore if heading text differs */ });
-
-    // Screenshot of the list
-    cy.screenshot("owners-list");
-
-    // Find the first visible 'View' control (button or link) and click it.
-    // Guard so we don’t destructure from an empty set.
-    cy.get("a,button", { timeout: 10000 })
-      .filter((_, el) => /^\s*view\s*$/i.test(el.textContent || ""))
-      .then(($views) => {
-        if ($views.length === 0) {
-          cy.log("No owners with a 'View' action found. Skipping.");
-          return;
-        }
-        cy.wrap($views[0]).click({ force: true });
-
-        // After clicking, we should end up on /owners/:id
-        cy.url({ timeout: 10000 }).should((url) => {
-          expect(url).to.match(/\/owners\/[^/]+$/);
-        });
-
-        // Final screenshot of the opened details
-        cy.screenshot("owner-details-opened");
+      // Open first owner via its "View" action
+      cy.wrap($rows[0]).within(() => {
+        // Prefer a "View" control; fallback to first owner link if needed
+        cy.contains(/^view$/i).click({ force: true });
       });
+
+      // Owner details page assertions (FIXED assertion style)
+      cy.location('pathname', { timeout: 10000 }).should((p) => {
+        expect(p).to.match(/^\/owners\/[A-Za-z0-9]+/);
+      });
+      cy.findByRole('button', { name: /back to owners/i, timeout: 10000 }).should('be.visible');
+      cy.findByText(/owner profile|owner details/i, { timeout: 10000 }).should('exist');
+      cy.screenshot('owner-details-opened');
+
+      // --- Open the first pet from this owner (if any) ---
+      // Look for a Pets section; then a "View Pet" control inside it.
+      cy.contains(/pets\s*linked to this owner|^pets$/i, { timeout: 10000 })
+        .parentsUntil('body')
+        .parent()
+        .then(($section) => {
+          // Within the surrounding container, try to find the first "View Pet" button/link
+          const selector = 'button, a';
+          const $viewPet = $section.find(selector).filter((_, el) => {
+            return /(^|\s)view\s*pet(\s|$)/i.test(el.textContent || '');
+          });
+
+          if ($viewPet.length === 0) {
+            cy.log('Owner has no linked pets — skipping pet details navigation.');
+            return;
+          }
+
+          // Click the first "View Pet"
+          cy.wrap($viewPet[0]).click();
+
+          // Pet details page assertions (FIXED assertion style)
+          cy.location('pathname', { timeout: 10000 }).should((p) => {
+            expect(p).to.match(/^\/pets\/[A-Za-z0-9]+/);
+          });
+          // Check for common UI bits on pet page
+          cy.findByRole('button', { name: /back to pets/i, timeout: 10000 }).should('be.visible');
+          cy.findByText(/pet profile|profile/i, { timeout: 10000 }).should('exist');
+          cy.screenshot('owner-pet-details-opened');
+    });
+    });
   });
 });

@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "verbatimModuleSyntax": false,
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "skipLibCheck": true
+    "module": "esnext"
+  },
+	"include": ["src", "src/__tests__", "jest.global-mocks.ts"]
+}

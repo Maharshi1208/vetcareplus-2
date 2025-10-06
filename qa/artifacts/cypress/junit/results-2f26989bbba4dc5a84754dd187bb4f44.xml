@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="5.413" tests="1" failures="0">
+  <testsuite name="Root Suite" timestamp="2025-10-05T15:18:53" tests="0" file="cypress/e2e/owner-details.navigation.cy.ts" time="0.000" failures="0">
+  </testsuite>
+  <testsuite name="Owner Details – navigation smoke" timestamp="2025-10-05T15:18:53" tests="1" time="5.412" failures="0">
+    <testcase name="Owner Details – navigation smoke opens the first owner from the list and lands on details page (or passes if none exist)" time="5.115" classname="opens the first owner from the list and lands on details page (or passes if none exist)">
+    </testcase>
+  </testsuite>
+</testsuites>
