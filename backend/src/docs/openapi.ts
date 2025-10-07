@@ -3,10 +3,8 @@ import type { OpenAPIV3 } from "openapi-types";
 export const openapiSpec: OpenAPIV3.Document = {
   openapi: "3.0.3",
   info: { title: "VetCare+ API", version: "1.0.0" },
-  servers: [
-    { url: "http://localhost:4000" },
-    { url: "http://localhost:4001" } // test server
-  ],
+  // Relative URL so it works in dev (4000/4001), tests, and CI without churn
+  servers: [{ url: "/" }],
   components: {
     securitySchemes: {
       bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" }
@@ -220,7 +218,8 @@ export const openapiSpec: OpenAPIV3.Document = {
         description:
           "Admins see all; Vets see their own; Owners see their pets. `from`/`to` accept ISO 8601 or `YYYY-MM-DD`.",
         parameters: [
-          { in: "query", name: "page", schema: { type: "integer", minimum: 1, default: 1 } },
+          // add a reasonable maximum for better interop with generators/fuzzers
+          { in: "query", name: "page", schema: { type: "integer", minimum: 1, maximum: 1000000, default: 1 } },
           { in: "query", name: "pageSize", schema: { type: "integer", minimum: 1, maximum: 100, default: 20 } },
           { in: "query", name: "status", schema: { type: "string", enum: ["BOOKED", "CANCELLED", "COMPLETED"] } },
           {
