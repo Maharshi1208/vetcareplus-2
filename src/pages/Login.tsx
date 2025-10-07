@@ -10,7 +10,7 @@ import Button from "../components/ui/Button";
 import { useAuth } from "../context/AuthContext";
 import logo from "../assets/logofinal.png";
 
-// NEW: use your API helpers so token storage is centralized
+// Use your API helpers so token storage is centralized
 import { apiPost, setTokenFromAuthPayload } from "../services/api";
 
 const schema = z.object({
@@ -18,8 +18,6 @@ const schema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 type FormData = z.infer<typeof schema>;
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -32,23 +30,26 @@ export default function Login() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     mode: "onTouched",
+    defaultValues: {
+      email: "admin@vetcare.local",
+      password: "admin123",
+    },
   });
 
   const onSubmit = async (data: FormData) => {
     try {
-      // Use apiPost to keep error handling consistent
+      // POST /auth/login
       const resp = await apiPost<any>("/auth/login", data);
 
-      // Store token in localStorage under "access" (helper supports multiple shapes)
+      // Store access token in localStorage ("access")
       const token = setTokenFromAuthPayload(resp);
       if (!token) throw new Error("Missing access token in response");
 
-      // Keep your existing app logic: tell AuthContext we’re logged in
+      // Tell AuthContext we’re logged in (also resolves role)
       await login(token);
 
       navigate("/dashboard");
     } catch (err: any) {
-      // apiPost already gives friendly messages via ApiError
       alert(err?.message || "Login failed");
     }
   };
@@ -58,11 +59,7 @@ export default function Login() {
       <div className="w-full max-w-md rounded-2xl border border-white/40 bg-white/85 backdrop-blur-sm shadow-soft p-6">
         <div className="mb-2 text-center">
           <div className="flex justify-center mb-1">
-            <img
-              src={logo}
-              alt="VetCare+"
-              className="h-58 w-auto object-contain"
-            />
+            <img src={logo} alt="VetCare+" className="h-58 w-auto object-contain" />
           </div>
           <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
           <p className="text-gray-600 text-sm">Welcome back to VetCare+</p>
@@ -83,12 +80,8 @@ export default function Login() {
             {...register("password")}
           />
 
-          {/* ✅ New: Forgot Password link */}
           <div className="flex justify-end">
-            <Link
-              to="/reset-password"
-              className="text-sm font-medium text-sky-700 hover:text-sky-900"
-            >
+            <Link to="/reset-password" className="text-sm font-medium text-sky-700 hover:text-sky-900">
               Forgot password?
             </Link>
           </div>
@@ -102,10 +95,7 @@ export default function Login() {
 
         <p className="mt-6 text-center text-sm text-gray-700">
           Don’t have an account?{" "}
-          <Link
-            to="/register"
-            className="font-medium text-sky-700 hover:text-sky-900"
-          >
+          <Link to="/register" className="font-medium text-sky-700 hover:text-sky-900">
             Create one
           </Link>
         </p>

@@ -1,3 +1,4 @@
+// src/App.tsx
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AppShell from "./layouts/AppShell";
 
@@ -40,7 +41,7 @@ import AddVaccine from "./pages/AddVaccine";
 import ViewVaccine from "./pages/ViewVaccine";
 import EditVaccine from "./pages/EditVaccine";
 
-import ResetPassword from "./pages/ResetPassword";   {/* ✅ Added import */}
+import ResetPassword from "./pages/ResetPassword"; // ✅ Fixed comment style
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import RequireRole from "./components/RequireRole";
@@ -61,7 +62,7 @@ export default function App() {
         {/* Public (no shell) */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/reset-password" element={<ResetPassword />} /> {/*  Added route */}
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Everything below requires auth */}
         <Route element={<ProtectedRoute />}>
@@ -71,125 +72,265 @@ export default function App() {
           {/* OWNER-only: pets */}
           <Route
             path="/pets"
-            element={<><RequireRole allow={["OWNER"]} /><AppShell><PetsPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["OWNER"]} />
+                <AppShell><PetsPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/pets/add"
-            element={<><RequireRole allow={["OWNER"]} /><AppShell><AddPetPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["OWNER"]} />
+                <AppShell><AddPetPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/pets/:id/edit"
-            element={<><RequireRole allow={["OWNER"]} /><AppShell><EditPetPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["OWNER"]} />
+                <AppShell><EditPetPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/pets/:id"
-            element={<><RequireRole allow={["OWNER"]} /><AppShell><PetDetailsPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["OWNER"]} />
+                <AppShell><PetDetailsPage /></AppShell>
+              </>
+            }
           />
 
           {/* OWNER + VET: appointments */}
           <Route
             path="/appointments"
-            element={<><RequireRole allow={["OWNER","VET"]} /><AppShell><AppointmentsPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["OWNER", "VET"]} />
+                <AppShell><AppointmentsPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/appointments/add"
-            element={<><RequireRole allow={["OWNER","VET"]} /><AppShell><AppointmentEdit /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["OWNER", "VET"]} />
+                <AppShell><AppointmentEdit /></AppShell>
+              </>
+            }
           />
           <Route
             path="/appointments/:id/edit"
-            element={<><RequireRole allow={["OWNER","VET"]} /><AppShell><AppointmentEdit /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["OWNER", "VET"]} />
+                <AppShell><AppointmentEdit /></AppShell>
+              </>
+            }
           />
           <Route
             path="/appointments/:id"
-            element={<><RequireRole allow={["OWNER","VET"]} /><AppShell><AppointmentDetailsPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["OWNER", "VET"]} />
+                <AppShell><AppointmentDetailsPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/appointments/calendar"
-            element={<><RequireRole allow={["OWNER","VET","ADMIN"]} /><AppShell><ApptCalendarPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["OWNER", "VET", "ADMIN"]} />
+                <AppShell><ApptCalendarPage /></AppShell>
+              </>
+            }
           />
 
           {/* Payments (mock): OWNER */}
           <Route
             path="/pay/checkout/:apptId"
-            element={<><RequireRole allow={["OWNER"]} /><AppShell><PayCheckoutPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["OWNER"]} />
+                <AppShell><PayCheckoutPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/pay/result"
-            element={<><RequireRole allow={["OWNER"]} /><AppShell><PayResultPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["OWNER"]} />
+                <AppShell><PayResultPage /></AppShell>
+              </>
+            }
           />
 
           {/* VET-only: medical */}
           <Route
             path="/health"
-            element={<><RequireRole allow={["VET"]} /><AppShell><HealthPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["VET"]} />
+                <AppShell><HealthPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/health/add-medication"
-            element={<><RequireRole allow={["VET"]} /><AppShell><AddMedication /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["VET"]} />
+                <AppShell><AddMedication /></AppShell>
+              </>
+            }
           />
           <Route
             path="/health/add-vaccine"
-            element={<><RequireRole allow={["VET"]} /><AppShell><AddVaccine /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["VET"]} />
+                <AppShell><AddVaccine /></AppShell>
+              </>
+            }
           />
           <Route
             path="/vaccines/:id/view"
-            element={<><RequireRole allow={["VET"]} /><AppShell><ViewVaccine /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["VET"]} />
+                <AppShell><ViewVaccine /></AppShell>
+              </>
+            }
           />
           <Route
             path="/vaccines/:id/edit"
-            element={<><RequireRole allow={["VET"]} /><AppShell><EditVaccine /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["VET"]} />
+                <AppShell><EditVaccine /></AppShell>
+              </>
+            }
           />
 
           {/* ADMIN-only: master data */}
           <Route
             path="/vets"
-            element={<><RequireRole allow={["ADMIN"]} /><AppShell><VetsPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["ADMIN"]} />
+                <AppShell><VetsPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/vets/add"
-            element={<><RequireRole allow={["ADMIN"]} /><AppShell><AddVetPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["ADMIN"]} />
+                <AppShell><AddVetPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/vets/:id"
-            element={<><RequireRole allow={["ADMIN"]} /><AppShell><VetDetailsPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["ADMIN"]} />
+                <AppShell><VetDetailsPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/vets/:id/edit"
-            element={<><RequireRole allow={["ADMIN"]} /><AppShell><EditVetPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["ADMIN"]} />
+                <AppShell><EditVetPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/owners"
-            element={<><RequireRole allow={["ADMIN"]} /><AppShell><OwnersPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["ADMIN"]} />
+                <AppShell><OwnersPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/owners/add"
-            element={<><RequireRole allow={["ADMIN"]} /><AppShell><AddOwnerPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["ADMIN"]} />
+                <AppShell><AddOwnerPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/owners/:id"
-            element={<><RequireRole allow={["ADMIN"]} /><AppShell><OwnerDetailsPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["ADMIN"]} />
+                <AppShell><OwnerDetailsPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/owners/:id/edit"
-            element={<><RequireRole allow={["ADMIN"]} /><AppShell><EditOwnerPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["ADMIN"]} />
+                <AppShell><EditOwnerPage /></AppShell>
+              </>
+            }
           />
 
           {/* Invoices: ADMIN or OWNER */}
           <Route
             path="/invoices"
-            element={<><RequireRole allow={["ADMIN","OWNER"]} /><AppShell><InvoicesPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["ADMIN", "OWNER"]} />
+                <AppShell><InvoicesPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/invoices/add"
-            element={<><RequireRole allow={["ADMIN","OWNER"]} /><AppShell><AddInvoicePage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["ADMIN", "OWNER"]} />
+                <AppShell><AddInvoicePage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/invoices/:id"
-            element={<><RequireRole allow={["ADMIN","OWNER"]} /><AppShell><InvoiceDetailsPage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["ADMIN", "OWNER"]} />
+                <AppShell><InvoiceDetailsPage /></AppShell>
+              </>
+            }
           />
           <Route
             path="/invoices/:id/edit"
-            element={<><RequireRole allow={["ADMIN","OWNER"]} /><AppShell><EditInvoicePage /></AppShell></>}
+            element={
+              <>
+                <RequireRole allow={["ADMIN", "OWNER"]} />
+                <AppShell><EditInvoicePage /></AppShell>
+              </>
+            }
           />
 
           {/* Settings: any authenticated role */}

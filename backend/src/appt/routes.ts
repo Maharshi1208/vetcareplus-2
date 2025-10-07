@@ -30,6 +30,10 @@ function parseDateOnly(s: string) {
   return d2;
 }
 
+function safeParseDateOnly(s: string): Date | 'INVALID' {
+  try { return parseDateOnly(s); } catch { return 'INVALID'; }
+}
+
 function sameLocalDay(a: Date, b: Date) {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -39,6 +43,26 @@ function sameLocalDay(a: Date, b: Date) {
 }
 function weekdayLocal(d: Date) { return d.getDay(); }              // 0..6
 function minutesOfDayLocal(d: Date) { return d.getHours() * 60 + d.getMinutes(); }
+
+/** Extract a single string from a query value that might be string|string[]|undefined */
+function getSingle(queryValue: unknown): string | undefined {
+  if (Array.isArray(queryValue)) return queryValue[0];
+  if (typeof queryValue === 'string') return queryValue;
+  return undefined;
+}
+
+/** Do NOT coerce "null"/"undefined"/"" to absent; keep them so parsing can reject */
+function normalizeDateQueryRaw(v?: string): string | undefined {
+  return v;
+}
+
+/** 405 helper */
+function methodNotAllowed(allow: string) {
+  return (_req: any, res: any) => {
+    res.set('Allow', allow);
+    return res.status(405).json({ ok: false, error: 'Method Not Allowed' });
+  };
+}
 
 /**
  * Resolve the vetId that corresponds to the logged-in user.
@@ -125,7 +149,7 @@ const rescheduleSchema = z.object({
 });
 
 const listQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
+  page: z.coerce.number().int().min(1).max(Number.MAX_SAFE_INTEGER).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   status: z.enum(['BOOKED', 'CANCELLED', 'COMPLETED']).optional(),
   from: z.string().optional(), // ISO or YYYY-MM-DD
@@ -148,66 +172,92 @@ function buildOwnerFromPet(pet: any) {
 
 // GET /appointments (with pagination + filters)
 router.get('/', authRequired, async (req: AuthedRequest, res) => {
-  const { page, pageSize, status, from, to } = listQuerySchema.parse(req.query);
+  try {
+    // Sanitize possible duplicate/array query params first
+    const q: any = {
+      ...req.query,
+      from: getSingle(req.query.from as any),
+      to: getSingle(req.query.to as any),
+    };
 
-  // role-scoped where
-  const where: any = {};
-  if (isAdmin(req)) {
-    // no extra filter
-  } else if (isVet(req)) {
-    const vid = await vetIdForReq(req);
-    if (!vid) {
-      return res.status(403).json({ ok: false, error: "No vet profile linked to this user" });
+    const parsed = listQuerySchema.safeParse(q);
+    if (!parsed.success) {
+      return res.status(400).json({ ok: false, error: parsed.error.flatten() });
     }
-    where.vetId = vid;
-  } else {
-    // OWNER
-    where.pet = { ownerId: req.user!.sub };
-  }
+    const { page, pageSize, status, from, to } = parsed.data;
 
-  if (status) where.status = status;
-  if (from || to) {
-    where.start = {};
-    if (from) where.start.gte = parseDateOnly(from);
-    if (to)   where.start.lt  = parseDateOnly(to);
-  }
+    const fromRaw = normalizeDateQueryRaw(from);
+    const toRaw = normalizeDateQueryRaw(to);
 
-  const [items, total] = await Promise.all([
-    prisma.appointment.findMany({
-      where,
-      orderBy: { start: 'asc' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      select: {
-        id: true, petId: true, vetId: true, start: true, end: true, status: true, reason: true, notes: true,
-        pet: {
-          select: {
-            name: true,
-            ownerId: true,
-            // ↓↓↓ join the user so we can display a human name
-            owner: { select: { id: true, name: true, email: true } },
-          }
-        },
-        vet: { select: { name: true, specialty: true } },
+    const fromDate = fromRaw !== undefined ? safeParseDateOnly(fromRaw) : undefined;
+    const toDate   = toRaw   !== undefined ? safeParseDateOnly(toRaw)   : undefined;
+
+    if (fromDate === 'INVALID' || toDate === 'INVALID') {
+      return res.status(400).json({ ok: false, error: 'Invalid date in query params' });
+    }
+
+    // role-scoped where
+    const where: any = {};
+    if (isAdmin(req)) {
+      // no extra filter
+    } else if (isVet(req)) {
+      const vid = await vetIdForReq(req);
+      if (!vid) {
+        return res.status(403).json({ ok: false, error: "No vet profile linked to this user" });
       }
-    }),
-    prisma.appointment.count({ where })
-  ]);
+      where.vetId = vid;
+    } else {
+      // OWNER
+      where.pet = { ownerId: req.user!.sub };
+    }
 
-  // add a top-level "owner" object while preserving the rest of each row
-  const withOwner = items.map((row: any) => ({
-    ...row,
-    owner: buildOwnerFromPet(row.pet),
-  }));
+    if (status) where.status = status;
+    if (fromDate || toDate) {
+      where.start = {};
+      if (fromDate) where.start.gte = fromDate;
+      if (toDate)   where.start.lt  = toDate;
+    }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  res.json({
-    ok: true,
-    page, pageSize, total, totalPages,
-    hasPrev: page > 1,
-    hasNext: page < totalPages,
-    appointments: withOwner,
-  });
+    const [items, total] = await Promise.all([
+      prisma.appointment.findMany({
+        where,
+        orderBy: { start: 'asc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true, petId: true, vetId: true, start: true, end: true, status: true, reason: true, notes: true,
+          pet: {
+            select: {
+              name: true,
+              ownerId: true,
+              // ↓↓↓ join the user so we can display a human name
+              owner: { select: { id: true, name: true, email: true } },
+            }
+          },
+          vet: { select: { name: true, specialty: true } },
+        }
+      }),
+      prisma.appointment.count({ where })
+    ]);
+
+    // add a top-level "owner" object while preserving the rest of each row
+    const withOwner = items.map((row: any) => ({
+      ...row,
+      owner: buildOwnerFromPet(row.pet),
+    }));
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    return res.json({
+      ok: true,
+      page, pageSize, total, totalPages,
+      hasPrev: page > 1,
+      hasNext: page < totalPages,
+      appointments: withOwner,
+    });
+  } catch (err) {
+    console.error('GET /appointments error:', err);
+    return res.status(500).json({ ok: false, error: 'Internal Server Error' });
+  }
 });
 
 // GET /appointments/:id (scoped by role)
@@ -614,5 +664,9 @@ router.patch('/:id/complete', authRequired, async (req: AuthedRequest, res) => {
 
   res.json({ ok: true, appointment: updated });
 });
+
+// 405 for unsupported methods on these paths
+router.all('/', methodNotAllowed('GET, POST'));
+router.all('/:id', methodNotAllowed('GET'));
 
 export default router;

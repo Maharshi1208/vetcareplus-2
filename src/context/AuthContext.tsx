@@ -14,8 +14,12 @@ type Ctx = {
 };
 
 const AuthCtx = createContext<Ctx>({
-  token: null, role: null, loading: true,
-  login: async () => {}, logout: () => {}, refreshRole: async () => {}
+  token: null,
+  role: null,
+  loading: true,
+  login: async () => {},
+  logout: () => {},
+  refreshRole: async () => {},
 });
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
@@ -63,24 +67,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Prefer new key 'access', but support old 'token' for backward-compat
-    const saved = localStorage.getItem("access") || localStorage.getItem("token");
-    if (saved) {
-      const d = decodeJwt<Decoded>(saved);
-      if (d?.exp && d.exp * 1000 < Date.now()) {
-        localStorage.removeItem("access");
-        localStorage.removeItem("token");
-      } else {
-        setToken(saved);
-        ensureRole(saved, d);
+    (async () => {
+      // Prefer new key 'access', but support old 'token' for backward-compat
+      const saved = localStorage.getItem("access") || localStorage.getItem("token");
+      if (saved) {
+        const d = decodeJwt<Decoded>(saved);
+        if (d?.exp && d.exp * 1000 < Date.now()) {
+          localStorage.removeItem("access");
+          localStorage.removeItem("token");
+        } else {
+          setToken(saved);
+          await ensureRole(saved, d);
+        }
       }
-    }
-    setLoading(false);
+      setLoading(false);
+    })();
   }, []);
 
   const login = async (t: string) => {
-    localStorage.setItem("access", t);          // new canonical key
-    localStorage.removeItem("token");           // clean up legacy key
+    localStorage.setItem("access", t); // new canonical key
+    localStorage.removeItem("token");  // clean up legacy key
     setToken(t);
     await ensureRole(t, decodeJwt<Decoded>(t));
   };

@@ -80,8 +80,8 @@ async function request<T>(
     };
 
     // Dev-only log of Authorization header
-    if (import.meta.env.DEV && headers.Authorization) {
-      console.log("[API] Sending Authorization:", headers.Authorization);
+    if (import.meta.env.DEV && (headers as any).Authorization) {
+      console.log("[API] Sending Authorization:", (headers as any).Authorization);
     }
 
     res = await fetch(url, {
@@ -90,7 +90,6 @@ async function request<T>(
       body: body == null ? undefined : (isForm ? (body as any) : JSON.stringify(body)),
     });
   } catch (e: any) {
-    // Network/connection error
     throw new ApiError(0, null, e?.message || "Network error");
   }
 

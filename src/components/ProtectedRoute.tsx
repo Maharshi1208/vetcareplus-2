@@ -1,8 +1,9 @@
-import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+// src/routes/ProtectedRoute.tsx
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function ProtectedRoute() {
   const { token, loading } = useAuth();
-  if (loading) return null; // keep your UI as-is; add spinner if you like
+  if (loading) return null; // or a spinner
   return token ? <Outlet /> : <Navigate to="/login" replace />;
 }
