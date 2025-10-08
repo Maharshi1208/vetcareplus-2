@@ -17,7 +17,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:reset": "prisma migrate reset --force",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "prisma db seed"
+    "prisma:seed": "prisma db seed",
+    "test:ci": "jest --config ./jest.config.ts --runInBand --detectOpenHandles --ci --coverage --reporters=default",
+    "coverage:html": "jest --config ./jest.config.ts --coverage --coverageReporters=html"
   },
   "keywords": [],
   "author": "",
