@@ -4,13 +4,11 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "react-router-dom";
-import Input from "../components/ui/Input";
-import PasswordInput from "../components/ui/PasswordInput";
 import Button from "../components/ui/Button";
 import { useAuth } from "../context/AuthContext";
 import logo from "../assets/logofinal.png";
 
-// Use your API helpers so token storage is centralized
+// API helpers
 import { apiPost, setTokenFromAuthPayload } from "../services/api";
 
 const schema = z.object({
@@ -38,16 +36,10 @@ export default function Login() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      // POST /auth/login
       const resp = await apiPost<any>("/auth/login", data);
-
-      // Store access token in localStorage ("access")
       const token = setTokenFromAuthPayload(resp);
       if (!token) throw new Error("Missing access token in response");
-
-      // Tell AuthContext we’re logged in (also resolves role)
       await login(token);
-
       navigate("/dashboard");
     } catch (err: any) {
       alert(err?.message || "Login failed");
@@ -59,31 +51,59 @@ export default function Login() {
       <div className="w-full max-w-md rounded-2xl border border-white/40 bg-white/85 backdrop-blur-sm shadow-soft p-6">
         <div className="mb-2 text-center">
           <div className="flex justify-center mb-1">
-            <img src={logo} alt="VetCare+" className="h-58 w-auto object-contain" />
+            <img src={logo} alt="VetCare+" className="h-16 w-auto object-contain" />
           </div>
           <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
           <p className="text-gray-600 text-sm">Welcome back to VetCare+</p>
         </div>
 
-        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
-          <Input
-            label="Email"
-            type="email"
-            placeholder="you@example.com"
-            error={errors.email?.message}
-            {...register("email")}
-          />
-          <PasswordInput
-            label="Password"
-            placeholder="••••••••"
-            error={errors.password?.message}
-            {...register("password")}
-          />
+        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              placeholder="you@example.com"
+              autoComplete="email"
+              disabled={isSubmitting}
+              className={`w-full rounded-lg border px-3 py-2 outline-none focus:border-sky-500 ${
+                errors.email ? "border-red-400" : "border-gray-300"
+              }`}
+              {...register("email")}
+            />
+            {errors.email && (
+              <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
+            )}
+          </div>
 
-          <div className="flex justify-end">
-            <Link to="/reset-password" className="text-sm font-medium text-sky-700 hover:text-sky-900">
-              Forgot password?
-            </Link>
+          {/* Password */}
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Password
+              </label>
+              <Link
+                to="/reset-password"
+                className="text-xs font-medium text-sky-700 hover:text-sky-900"
+              >
+                Forgot password?
+              </Link>
+            </div>
+            <input
+              type="password"
+              placeholder="••••••••"
+              autoComplete="current-password"
+              disabled={isSubmitting}
+              className={`w-full rounded-lg border px-3 py-2 outline-none focus:border-sky-500 ${
+                errors.password ? "border-red-400" : "border-gray-300"
+              }`}
+              {...register("password")}
+            />
+            {errors.password && (
+              <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>
+            )}
           </div>
 
           <div className="pt-2">

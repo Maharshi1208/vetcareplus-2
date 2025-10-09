@@ -1,1 +1,6 @@
+/* src/index.css */
 @import "tailwindcss";
+
+/* Optional: hint native form controls about color scheme */
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }

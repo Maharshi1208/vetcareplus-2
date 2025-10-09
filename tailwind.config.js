@@ -1,6 +1,8 @@
+// tailwind.config.ts
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html","./src/**/*.{ts,tsx}"],
+  darkMode: 'class', // <- keep this simple
+  content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
@@ -13,11 +15,11 @@ export default {
           50:"#eff6ff",100:"#dbeafe",200:"#bfdbfe",300:"#93c5fd",
           400:"#60a5fa",500:"#3b82f6",600:"#2563eb",700:"#1d4ed8",
           800:"#1e40af",900:"#1e3a8a",
-        }
+        },
       },
-      borderRadius: { '2xl': '1.25rem' },
-      boxShadow: { soft: "0 6px 20px rgba(16,24,40,0.08)" }
+      borderRadius: { "2xl": "1.25rem" },
+      boxShadow: { soft: "0 6px 20px rgba(16,24,40,0.08)" },
     },
   },
   plugins: [],
-}
+};
