@@ -174,12 +174,13 @@ export default function App() {
             }
           />
 
-          {/* VET-only: medical */}
+          {/* MEDICAL / HEALTH */}
           <Route
             path="/health"
             element={
               <>
-                <RequireRole allow={["VET"]} />
+                {/* Owners can view; vets/admins can also view */}
+                <RequireRole allow={["OWNER", "VET", "ADMIN"]} />
                 <AppShell><HealthPage /></AppShell>
               </>
             }
@@ -188,7 +189,8 @@ export default function App() {
             path="/health/add-medication"
             element={
               <>
-                <RequireRole allow={["VET"]} />
+                {/* Only vets/admins can create */}
+                <RequireRole allow={["VET", "ADMIN"]} />
                 <AppShell><AddMedication /></AppShell>
               </>
             }
@@ -197,7 +199,8 @@ export default function App() {
             path="/health/add-vaccine"
             element={
               <>
-                <RequireRole allow={["VET"]} />
+                {/* Only vets/admins can create */}
+                <RequireRole allow={["VET", "ADMIN"]} />
                 <AppShell><AddVaccine /></AppShell>
               </>
             }
@@ -206,7 +209,8 @@ export default function App() {
             path="/vaccines/:id/view"
             element={
               <>
-                <RequireRole allow={["VET"]} />
+                {/* Owners can view details; vets/admins too */}
+                <RequireRole allow={["OWNER", "VET", "ADMIN"]} />
                 <AppShell><ViewVaccine /></AppShell>
               </>
             }
@@ -215,7 +219,8 @@ export default function App() {
             path="/vaccines/:id/edit"
             element={
               <>
-                <RequireRole allow={["VET"]} />
+                {/* Only vets/admins can edit */}
+                <RequireRole allow={["VET", "ADMIN"]} />
                 <AppShell><EditVaccine /></AppShell>
               </>
             }

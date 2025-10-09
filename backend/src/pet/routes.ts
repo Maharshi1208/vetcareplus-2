@@ -1,4 +1,4 @@
-// src/pets/routes.ts
+// backend/src/pet/routes.ts
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/db.js';
@@ -61,24 +61,39 @@ async function loadScopedPet(req: AuthedRequest, id: string) {
 const ownerSelect = { id: true, name: true, email: true } as const;
 
 // -------------------- Dropdown endpoint (ARRAY) --------------------
-// GET /pets/select?ownerId=me|<uuid>&includeArchived=false
+// GET /pets/select?ownerId=me|<uuid>&includeArchived=false&all=1
 // - Returns ARRAY: [{ id, name, ownerId }]
 router.get('/select', authRequired, async (req: AuthedRequest, res) => {
   const includeArchived = String(req.query.includeArchived ?? 'false') === 'true';
   const ownerIdParam = (req.query.ownerId as string | undefined) || '';
+  const allParam =
+    String(req.query.all ?? '0') === '1' ||
+    String(req.query.all ?? '').toLowerCase() === 'true';
 
+  // Base where on archived flag
   let where: any = includeArchived ? {} : { archived: false };
 
   if (isAdmin(req)) {
+    // ADMIN can see all by default; allow narrowing by ownerId/me
     if (ownerIdParam === 'me') where.ownerId = req.user!.sub;
     else if (ownerIdParam) where.ownerId = ownerIdParam;
-    // else: all pets
+    // else leave 'where' as-is (all pets)
   } else if (req.user?.role === 'OWNER') {
+    // OWNER only sees their pets
     where.ownerId = req.user!.sub;
   } else if (isVet(req)) {
-    if (ownerIdParam === 'me') where.ownerId = req.user!.sub;
-    else if (ownerIdParam) where.ownerId = ownerIdParam;
-    else where.ownerId = req.user!.sub; // usually yields none for vets
+    // VET:
+    // - if all=1 => see all pets (respect archived filter)
+    // - else: allow optional narrowing by ownerId or 'me'; default to only their own (usually none)
+    if (allParam) {
+      // leave 'where' as-is (no owner filter)
+    } else if (ownerIdParam === 'me') {
+      where.ownerId = req.user!.sub;
+    } else if (ownerIdParam) {
+      where.ownerId = ownerIdParam;
+    } else {
+      where.ownerId = req.user!.sub; // legacy behavior
+    }
   }
 
   const items = await prisma.pet.findMany({
@@ -94,7 +109,6 @@ router.get('/select', authRequired, async (req: AuthedRequest, res) => {
 // -------------------- Routes --------------------
 
 // GET /pets?includeArchived=false&ownerId=me|<uuid>
-// Response: { ok: true, pets }  (now includes owner: {id,name,email})
 router.get('/', authRequired, async (req: AuthedRequest, res) => {
   const includeArchived = String(req.query.includeArchived ?? 'false') === 'true';
   const ownerIdParam = (req.query.ownerId as string | undefined) || '';
@@ -111,19 +125,19 @@ router.get('/', authRequired, async (req: AuthedRequest, res) => {
       return res.status(403).json({ ok: false, error: 'Forbidden' });
     }
   } else if (isVet(req)) {
-    // keep existing vet behavior on this endpoint
+    // keep existing vet behavior on this endpoint (no "all" here)
   }
 
   const pets = await prisma.pet.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    include: { owner: { select: ownerSelect } }, // ← include owner for table rendering
+    include: { owner: { select: ownerSelect } },
   });
 
   res.json({ ok: true, pets });
 });
 
-// POST /pets  (returns created pet with owner for immediate UI display)
+// POST /pets
 router.post('/', authRequired, async (req: AuthedRequest, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
@@ -133,7 +147,7 @@ router.post('/', authRequired, async (req: AuthedRequest, res) => {
 
   const pet = await prisma.pet.create({
     data: {
-      owner: { connect: { id: ownerId } }, // set relation
+      owner: { connect: { id: ownerId } },
       name: data.name,
       species: data.species,
       breed: data.breed,
@@ -148,13 +162,13 @@ router.post('/', authRequired, async (req: AuthedRequest, res) => {
       neutered: data.neutered,
       notes: data.notes,
     },
-    include: { owner: { select: ownerSelect } }, // ← return owner details too
+    include: { owner: { select: ownerSelect } },
   });
 
   res.status(201).json({ ok: true, pet });
 });
 
-// GET /pets/:id (returns pet with owner)
+// GET /pets/:id
 router.get('/:id', authRequired, async (req: AuthedRequest, res) => {
   const { id } = req.params;
   const { error, pet } = await loadScopedPet(req, id);
@@ -162,7 +176,7 @@ router.get('/:id', authRequired, async (req: AuthedRequest, res) => {
 
   const withOwner = await prisma.pet.findUnique({
     where: { id: pet.id },
-    include: { owner: { select: ownerSelect } }, // ← include owner
+    include: { owner: { select: ownerSelect } },
   });
 
   res.json({ ok: true, pet: withOwner });
@@ -202,7 +216,7 @@ router.patch('/:id', authRequired, async (req: AuthedRequest, res) => {
       archived: data.archived ?? undefined,
       ...(isAdmin(req) && data.ownerId ? { ownerId: data.ownerId } : {}),
     },
-    include: { owner: { select: ownerSelect } }, // ← handy for immediate UI refresh
+    include: { owner: { select: ownerSelect } },
   });
   res.json({ ok: true, pet: updated });
 });

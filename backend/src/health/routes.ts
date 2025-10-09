@@ -4,14 +4,25 @@ import { prisma } from '../lib/db.js';
 import { authRequired, AuthedRequest } from '../middleware/auth.js';
 
 const router = Router();
+
 const isAdmin = (req: AuthedRequest) => req.user?.role === 'ADMIN';
+const isVet   = (req: AuthedRequest) => req.user?.role === 'VET';
 
 // ---------- Helpers ----------
-async function canUsePet(req: AuthedRequest, petId: string) {
-  if (isAdmin(req)) return true;
+async function canReadPet(req: AuthedRequest, petId: string) {
+  // Staff can read any pet; owners only their pets
+  if (isAdmin(req) || isVet(req)) return true;
   const pet = await prisma.pet.findUnique({ where: { id: petId }, select: { ownerId: true } });
   return !!pet && pet.ownerId === req.user!.sub;
 }
+
+async function canWritePet(req: AuthedRequest, petId: string) {
+  // Allow staff to write for any pet; owners only their pets
+  if (isAdmin(req) || isVet(req)) return true;
+  const pet = await prisma.pet.findUnique({ where: { id: petId }, select: { ownerId: true } });
+  return !!pet && pet.ownerId === req.user!.sub;
+}
+
 function toDate(s: string) {
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) throw new Error('Invalid date');
@@ -22,14 +33,14 @@ function toDate(s: string) {
 const vaccinationCreate = z.object({
   petId: z.string().cuid(),
   name: z.string().min(1),
-  givenAt: z.string(),     // ISO RFC3339 e.g. "2024-06-01T00:00:00.000Z"
+  givenAt: z.string(),     // ISO RFC3339
   notes: z.string().optional(),
 });
 
 const medicationCreate = z.object({
   petId: z.string().cuid(),
   name: z.string().min(1),
-  dosage: z.string().min(1),      // free text dosage
+  dosage: z.string().min(1),
   startAt: z.string(),            // ISO datetime
   durationDays: z.number().int().positive(),
   notes: z.string().optional(),
@@ -47,7 +58,7 @@ router.post('/vaccinations', authRequired, async (req: AuthedRequest, res) => {
   if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
 
   const { petId, name, givenAt, notes } = parsed.data;
-  if (!(await canUsePet(req, petId))) return res.status(403).json({ ok: false, error: 'Forbidden: pet not owned' });
+  if (!(await canWritePet(req, petId))) return res.status(403).json({ ok: false, error: 'Forbidden: pet not owned' });
 
   let at: Date;
   try { at = toDate(givenAt); } catch { return res.status(400).json({ ok: false, error: 'Invalid date' }); }
@@ -59,16 +70,11 @@ router.post('/vaccinations', authRequired, async (req: AuthedRequest, res) => {
 router.get('/vaccinations', authRequired, async (req: AuthedRequest, res) => {
   const petId = String(req.query.petId ?? '');
   if (!petId) return res.status(400).json({ ok: false, error: 'petId required' });
-  if (!(await canUsePet(req, petId))) return res.status(403).json({ ok: false, error: 'Forbidden' });
+  if (!(await canReadPet(req, petId))) return res.status(403).json({ ok: false, error: 'Forbidden' });
 
-  const items = await prisma.vaccination.findMany({
-    where: { petId },
-    orderBy: { givenAt: 'desc' }
-  });
+  const items = await prisma.vaccination.findMany({ where: { petId }, orderBy: { givenAt: 'desc' } });
   res.json({ ok: true, vaccinations: items });
 });
-
-// No PATCH/DELETE for vaccinations (immutable)
 
 // ---------- Medications ----------
 router.post('/medications', authRequired, async (req: AuthedRequest, res) => {
@@ -76,7 +82,7 @@ router.post('/medications', authRequired, async (req: AuthedRequest, res) => {
   if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
 
   const { petId, name, dosage, startAt, durationDays, notes } = parsed.data;
-  if (!(await canUsePet(req, petId))) return res.status(403).json({ ok: false, error: 'Forbidden: pet not owned' });
+  if (!(await canWritePet(req, petId))) return res.status(403).json({ ok: false, error: 'Forbidden: pet not owned' });
 
   let start: Date;
   try { start = toDate(startAt); } catch { return res.status(400).json({ ok: false, error: 'Invalid date' }); }
@@ -90,12 +96,9 @@ router.post('/medications', authRequired, async (req: AuthedRequest, res) => {
 router.get('/medications', authRequired, async (req: AuthedRequest, res) => {
   const petId = String(req.query.petId ?? '');
   if (!petId) return res.status(400).json({ ok: false, error: 'petId required' });
-  if (!(await canUsePet(req, petId))) return res.status(403).json({ ok: false, error: 'Forbidden' });
+  if (!(await canReadPet(req, petId))) return res.status(403).json({ ok: false, error: 'Forbidden' });
 
-  const items = await prisma.medication.findMany({
-    where: { petId },
-    orderBy: { startAt: 'desc' }
-  });
+  const items = await prisma.medication.findMany({ where: { petId }, orderBy: { startAt: 'desc' } });
   res.json({ ok: true, medications: items });
 });
 
@@ -109,19 +112,20 @@ router.patch('/medications/:id', authRequired, async (req: AuthedRequest, res) =
     select: { id: true, petId: true, pet: { select: { ownerId: true } } }
   });
   if (!med) return res.status(404).json({ ok: false, error: 'Not found' });
-  if (!isAdmin(req) && med.pet.ownerId !== req.user!.sub) return res.status(403).json({ ok: false, error: 'Forbidden' });
 
-  const updated = await prisma.medication.update({
-    where: { id: med.id },
-    data: parsed.data
-  });
+  // Staff or the pet owner can edit
+  if (!(isAdmin(req) || isVet(req) || med.pet.ownerId === req.user!.sub)) {
+    return res.status(403).json({ ok: false, error: 'Forbidden' });
+  }
+
+  const updated = await prisma.medication.update({ where: { id: med.id }, data: parsed.data });
   res.json({ ok: true, medication: updated });
 });
 
 // ---------- Timeline (combined) ----------
-router.get('/timeline/:petId', authRequired, async (req: AuthedRequest, res) => {
+router.get('/pets/:petId/health', authRequired, async (req: AuthedRequest, res) => {
   const petId = req.params.petId;
-  if (!(await canUsePet(req, petId))) return res.status(403).json({ ok: false, error: 'Forbidden' });
+  if (!(await canReadPet(req, petId))) return res.status(403).json({ ok: false, error: 'Forbidden' });
 
   const [vax, meds, appts] = await Promise.all([
     prisma.vaccination.findMany({ where: { petId }, orderBy: { givenAt: 'desc' } }),
@@ -135,7 +139,13 @@ router.get('/timeline/:petId', authRequired, async (req: AuthedRequest, res) => 
 
   const items = [
     ...vax.map(v => ({ type: 'VACCINATION' as const, date: v.givenAt, title: v.name, details: v.notes ?? '', id: v.id })),
-    ...meds.map(m => ({ type: 'MEDICATION' as const, date: m.startAt, title: `${m.name} (${m.dosage})`, details: `for ${m.durationDays} day(s)${m.notes ? ' — '+m.notes : ''}`, id: m.id })),
+    ...meds.map(m => ({
+      type: 'MEDICATION' as const,
+      date: m.startAt,
+      title: `${m.name} (${m.dosage})`,
+      details: `for ${m.durationDays} day(s)${m.notes ? ' — ' + m.notes : ''}`,
+      id: m.id
+    })),
     ...appts.map(a => ({ type: 'APPOINTMENT' as const, date: a.start, title: `Appointment with ${a.vet.name}`, details: a.reason ?? a.status, id: a.id })),
   ].sort((a, b) => +new Date(b.date) - +new Date(a.date));
 

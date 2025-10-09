@@ -1,35 +1,74 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { fetchPetsForHealth, type PetOption } from "../services/dropdowns";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 export default function AddVaccine() {
   const navigate = useNavigate();
+  const { role } = useAuth();
 
+  // Pet dropdown
+  const [pets, setPets] = useState<PetOption[]>([]);
+  const [petId, setPetId] = useState("");
+
+  // Form
   const [name, setName] = useState("");
-  const [givenOn, setGivenOn] = useState("");
+  const [givenOn, setGivenOn] = useState(""); // yyyy-mm-dd
   const [nextDue, setNextDue] = useState("");
   const [notes, setNotes] = useState("");
 
-  const handleSave = () => {
-    const newEntry = {
-      id: Date.now().toString(),
-      date: givenOn,
-      pet: "Demo Pet",
-      owner: "Demo Owner",
-      vet: "Demo Vet",
-      type: "vaccine" as const,
-      title: name,
-      note: `Next due: ${nextDue}. ${notes}`,
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await fetchPetsForHealth(role ?? null);
+        setPets(list);
+        if (list.length) setPetId(list[0].id);
+      } catch (e) {
+        console.error("load pets failed", e);
+        setPets([]);
+      }
+    })();
+  }, [role]);
+
+  const isDisabled = !petId || !name || !givenOn;
+
+  async function handleSave() {
+    if (isDisabled) return;
+    const token = localStorage.getItem("access") || localStorage.getItem("token") || "";
+
+    // Backend fields: petId, name, givenAt, notes
+    const body = {
+      petId,
+      name,
+      givenAt: new Date(`${givenOn}T00:00:00.000Z`).toISOString(),
+      notes: [nextDue ? `Next due: ${nextDue}` : "", notes].filter(Boolean).join(". "),
     };
+
+    const res = await fetch(`${API_URL}/vaccinations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json?.ok) {
+      console.error(json);
+      alert(json?.error ?? "Failed to save vaccine");
+      return;
+    }
 
     navigate("/health", {
       state: {
-        flash: { type: "success", message: `Vaccine "${name}" added.` },
-        newEntry,
+        flash: { type: "success", message: `Vaccine “${name}” added.` },
       },
     });
-  };
-
-  const isDisabled = !name || !givenOn;
+  }
 
   return (
     <div className="space-y-4">
@@ -50,6 +89,27 @@ export default function AddVaccine() {
       </div>
 
       <div className="rounded-2xl border p-4 md:p-6 space-y-6">
+        {/* Pet */}
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">Pet</label>
+          <select
+            className="w-full rounded-xl border px-3 py-2"
+            value={petId}
+            onChange={(e) => setPetId(e.target.value)}
+          >
+            {pets.length === 0 ? (
+              <option value="">No pets available</option>
+            ) : (
+              pets.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                  {"ownerName" in p && (p as any).ownerName ? ` — ${(p as any).ownerName}` : ""}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-gray-600 mb-1">Vaccine Name</label>
