@@ -1,0 +1,91 @@
+name: Security - OWASP ZAP
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  zap-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx (optional)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start stack (API+DB+MailHog) via Compose
+        run: |
+          docker compose -f infra/docker-compose.yml up -d
+          # wait for API to be healthy
+          for i in {1..60}; do
+            if curl -sS http://localhost:4000/health >/dev/null; then
+              echo "API is up."
+              break
+            fi
+            echo "Waiting for API... ($i)"
+            sleep 3
+          done
+          curl -sS http://localhost:4000/health || (echo "API did not start" && exit 1)
+
+      - name: Get Admin JWT
+        id: jwt
+        run: |
+          ACCESS=$(
+            curl -s http://localhost:4000/auth/login \
+              -H "Content-Type: application/json" \
+              -d '{"email":"admin@vetcare.local","password":"admin123"}' \
+            | jq -r '.tokens.access'
+          )
+          if [ -z "$ACCESS" ] || [ "$ACCESS" = "null" ]; then
+            echo "Failed to get admin token"; exit 1
+          fi
+          echo "token_prefix=${ACCESS:0:16}" >> $GITHUB_OUTPUT
+          echo "ACCESS=$ACCESS" >> $GITHUB_ENV
+          echo "Got admin token: ${ACCESS:0:16}..."
+
+      - name: Pull ZAP image (GHCR)
+        run: |
+          docker pull ghcr.io/zaproxy/zaproxy:stable
+
+      # ---------- Baseline (passive) ----------
+      - name: ZAP Baseline (passive)
+        run: |
+          docker run --rm -t \
+            -v "$PWD":/zap/wrk:rw \
+            --add-host=host.docker.internal:host-gateway \
+            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+              -t http://host.docker.internal:4000 \
+              -r zap-baseline.html \
+              -m 5
+          # -m 5 marks Mediums as FAIL (optional). Remove or tweak severity gates as you like.
+
+      # ---------- API scan (active) ----------
+      - name: ZAP API Scan (active, OpenAPI)
+        run: |
+          docker run --rm -t \
+            -v "$PWD":/zap/wrk:rw \
+            -e ZAP_AUTH_HEADER_VALUE="Bearer $ACCESS" \
+            -e ZAP_AUTH_HEADER_SITE="host.docker.internal" \
+            --add-host=host.docker.internal:host-gateway \
+            ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py \
+              -t http://host.docker.internal:4000/docs/openapi.json \
+              -f openapi \
+              -r zap-openapi-auth.html \
+              -m 1
+          # -m 1 fails on Highs; adjust severity gate if needed.
+
+      - name: Upload ZAP Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-reports
+          path: |
+            zap-baseline.html
+            zap-openapi-auth.html
+
+      - name: Stop stack
+        if: always()
+        run: docker compose -f infra/docker-compose.yml down -v

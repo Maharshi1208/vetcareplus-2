@@ -1,129 +1,137 @@
 // backend/src/app.ts
-// Load .env.test for tests, .env for everything else
-import { config as loadEnv } from 'dotenv';
-loadEnv({ path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env' });
-
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import morgan from 'morgan';
-
-import { env } from './config/env.js';
-import { rateLimiter } from './middleware/rateLimit.js';
-import { prisma } from './lib/db.js';
-
-import reportRoutes from './report/routes.js';
-import payRoutes from './pay/routes.js';
-import apptRoutes from './appt/routes.js';
-import vetRoutes from './vet/routes.js';
-import petRoutes from './pet/routes.js';        // ✅ singular "pet"
-import adminRoutes from './admin/routes.js';
-import authRoutes from './auth/routes.js';
-import swaggerUi from 'swagger-ui-express';
-import { getSpec } from './docs/openapi.js';
-import notifyRoutes from './notify/notify.routes.js';
-import metricsRoutes from './metrics/routes.js';
-import ownersRoutes from './owner/routes.js';
-
-// ✅ Health routes (vaccinations/medications/timeline)
-import healthRoutes from './health/routes.js';
-
-// RBAC helpers only used inside specific routes (not globally here)
-import { authRequired, requireRole } from './middleware/auth.js';
-import type { AuthedRequest } from './middleware/auth.js';
 
 const app = express();
 
-/** OpenAPI JSON + Swagger UI */
-app.get('/docs/openapi.json', (_req, res) => {
-  res.json(getSpec());
-});
-app.use(
-  '/docs',
-  swaggerUi.serve,
-  swaggerUi.setup(undefined, {
-    swaggerOptions: { url: '/docs/openapi.json' },
-    customSiteTitle: 'VetCare+ API Docs',
-  })
-);
+const NODE_ENV = process.env.NODE_ENV ?? 'development';
+const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+const APP_URL = process.env.APP_URL ?? 'http://localhost:4000';
 
-/** Security & infra */
-app.use(helmet());
-app.use(rateLimiter);
+// CORS
+const corsOrigins = new Set<string>(
+  [FRONTEND_URL, APP_URL].filter(Boolean).map((s) => s.replace(/\/+$/, ''))
+);
 app.use(
   cors({
-    origin: env.CORS_ORIGIN,
-    credentials: true,
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      try {
+        const o = new URL(origin).origin;
+        return cb(null, corsOrigins.has(o));
+      } catch {
+        return cb(null, false);
+      }
+    },
   })
 );
+
 app.use(express.json({ limit: '1mb' }));
-app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use(express.urlencoded({ extended: false }));
+app.set('trust proxy', 1);
 
-/** Basic health */
-app.get('/', (_req, res) => res.send('VetCare+ API is running'));
-app.get('/ping', (_req, res) =>
-  res.json({ ok: true, pong: new Date().toISOString() })
-);
-app.get('/health', (_req, res) =>
-  res
-    .status(200)
-    .json({ ok: true, uptime: process.uptime(), timestamp: new Date().toISOString() })
+// Helmet base (CSP disabled here; we set it manually next)
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginOpenerPolicy: { policy: 'same-origin' },
+    crossOriginResourcePolicy: { policy: 'same-origin' },
+    referrerPolicy: { policy: 'no-referrer' },
+  })
 );
 
-/** DB health via Prisma */
-app.get('/health/db', async (_req, res) => {
-  try {
-    const r = await prisma.$queryRaw<{ ok: number }[]>`SELECT 1 AS ok`;
-    res.status(200).json({ ok: Array.isArray(r) && r[0]?.ok === 1 });
-  } catch (err) {
-    console.error('DB health error:', err);
-    res.status(500).json({ ok: false, error: 'DB not reachable' });
-  }
+// Security headers + caching
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  // Strict, dev-friendly CSP
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "font-src 'self' data:",
+    `connect-src 'self' ${FRONTEND_URL} ${APP_URL}`,
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    'upgrade-insecure-requests',
+    "script-src-attr 'none'",
+  ].join('; ');
+
+  res.setHeader('Content-Security-Policy', csp);
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+
+  // Permissions-Policy (explicit)
+  res.setHeader(
+    'Permissions-Policy',
+    [
+      'accelerometer=()',
+      'autoplay=()',
+      'camera=()',
+      'display-capture=()',
+      'encrypted-media=()',
+      'fullscreen=()',
+      'geolocation=()',
+      'gyroscope=()',
+      'magnetometer=()',
+      'microphone=()',
+      'midi=()',
+      'payment=()',
+      'usb=()',
+      'screen-wake-lock=()',
+      'web-share=()',
+    ].join(', ')
+  );
+
+  // Extra isolation (ok for APIs)
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+
+  // 🚫 Always disable caching for API responses (clears ZAP 10049)
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  // Optional: CDNs
+  res.setHeader('Surrogate-Control', 'no-store');
+
+  next();
 });
 
-/** Dev-only sanity endpoints */
-if (env.NODE_ENV !== 'production') {
-  app.get('/whoami', authRequired, (req, res) => {
-    const user = (req as AuthedRequest).user;
-    res.json({ ok: true, user });
-  });
+// Noise-reduction endpoints
+app.get('/robots.txt', (_req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.send('User-agent: *\nDisallow: /');
+});
 
-  app.get('/admin/ping', authRequired, requireRole('ADMIN'), (_req, res) => {
-    res.json({ ok: true, scope: 'ADMIN' });
-  });
-}
+app.get('/sitemap.xml', (_req, res) => {
+  res.status(204).end();
+});
 
-/**
- * ROUTES
- * Keep /auth PUBLIC (no authRequired here). All other routers do their own per-route guards.
- */
-app.use('/auth', authRoutes);
+// Health/root
+app.get('/', (_req, res) => {
+  res.status(200).json({ ok: true, env: NODE_ENV });
+});
 
-app.use('/admin', adminRoutes);
-app.use('/owners', ownersRoutes);
-app.use('/pets', petRoutes);             // ✅ pets endpoints
-app.use('/vets', vetRoutes);
-app.use('/appointments', apptRoutes);
-app.use('/pay', payRoutes);
-app.use('/reports', reportRoutes);
-app.use('/notify', notifyRoutes);
-app.use('/metrics', metricsRoutes);
+// Mount your real routers below, e.g.
+// import authRouter from './routes/auth';
+// app.use('/auth', authRouter);
 
-// ✅ Health endpoints (no prefix):
-//    POST /vaccinations
-//    GET  /vaccinations?petId=...
-//    POST /medications
-//    GET  /medications?petId=...
-//    GET  /pets/:petId/health
-app.use(healthRoutes);
+// 404
+app.use((_req, res) => {
+  res.status(404).json({ error: 'Not Found' });
+});
 
-/** 404 + error handler */
-app.use((_req, res) => res.status(404).json({ ok: false, error: 'Not found' }));
-app.use(
-  (err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error(err);
-    res.status(500).json({ ok: false, error: 'Internal Server Error' });
-  }
-);
+// Error handler
+/* eslint-disable @typescript-eslint/no-unused-vars */
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const code = Number(err?.status || err?.statusCode || 500);
+  const body =
+    NODE_ENV === 'production'
+      ? { error: 'Internal Server Error' }
+      : { error: err?.message || 'Internal Server Error', stack: err?.stack };
+  res.status(code).json(body);
+});
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 export default app;

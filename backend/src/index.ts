@@ -1,9 +1,9 @@
-// Ensure env is loaded BEFORE anything else
+// backend/src/index.ts
 import 'dotenv/config';
-
 import { env } from './config/env.js';
 import app from './app.js';
 
-app.listen(env.PORT, () => {
-  console.log(`VetCare+ API listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);
+const port = Number(env.PORT) || 4000;
+app.listen(port, () => {
+  console.log(`VetCare+ API listening on http://localhost:${port} (${env.NODE_ENV})`);
 });
