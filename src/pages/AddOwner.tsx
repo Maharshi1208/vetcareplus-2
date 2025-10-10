@@ -1,5 +1,7 @@
+// src/pages/AddOwner.tsx
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { apiPost, ApiError } from "../services/api";  // <-- use your helpers
 
 export default function AddOwnerPage() {
   const navigate = useNavigate();
@@ -13,6 +15,7 @@ export default function AddOwnerPage() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   function set<K extends keyof typeof form>(k: K, v: any) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -27,40 +30,46 @@ export default function AddOwnerPage() {
     return Object.keys(e).length === 0;
   }
 
-  function onSubmit(ev: React.FormEvent) {
+  async function onSubmit(ev: React.FormEvent) {
     ev.preventDefault();
     if (!validate()) return;
 
-    // UI-only: no API. Just return to list with a flash.
-    // eslint-disable-next-line no-console
-    console.log("AddOwnerPage submit (UI-only):", form);
-
-    navigate("/owners", { state: { flash: { type: "success", message: "Owner saved" } } });
+    try {
+      setSubmitting(true);
+      const res = await apiPost<{ ok: boolean; owner?: any; error?: string }>("/owners", form);
+      if (res.ok) {
+        navigate("/owners", { state: { flash: { type: "success", message: "Owner saved" } } });
+      } else {
+        setErrors((e) => ({ ...e, _root: res.error || "Failed to save owner" }));
+      }
+    } catch (err: any) {
+      const msg =
+        (err as ApiError)?.data?.error ||
+        (err as ApiError)?.message ||
+        "Failed to save owner";
+      setErrors((e) => ({ ...e, _root: msg }));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function onReset() {
-    setForm({
-      name: "",
-      email: "",
-      phone: "",
-      address: "",
-      notes: "",
-    });
+    setForm({ name: "", email: "", phone: "", address: "", notes: "" });
     setErrors({});
   }
 
   return (
     <div className="p-6">
-      {/* Header */}
+      {/* Header (unchanged) */}
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Add Owner</h1>
-          <p className="text-sm text-gray-500">Create a new owner (UI-only).</p>
+          <p className="text-sm text-gray-500">Create a new owner.</p>
         </div>
         <Link to="/owners" className="text-sm underline">← Back to Owners</Link>
       </div>
 
-      {/* Card */}
+      {/* Card (design unchanged) */}
       <div className="rounded-2xl border bg-white shadow-sm">
         <form onSubmit={onSubmit}>
           <div className="border-b p-4">
@@ -68,6 +77,12 @@ export default function AddOwnerPage() {
           </div>
 
           <div className="p-4 sm:p-6 space-y-6">
+            {errors._root && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {errors._root}
+              </div>
+            )}
+
             {/* Name */}
             <div>
               <label className="block text-sm font-medium">Name *</label>
@@ -129,14 +144,15 @@ export default function AddOwnerPage() {
           </div>
 
           <div className="flex flex-col gap-3 border-t p-4 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onReset} className="rounded-xl border px-4 py-2">
+            <button type="button" onClick={onReset} className="rounded-xl border px-4 py-2" disabled={submitting}>
               Reset
             </button>
             <button
               type="submit"
-              className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-5 py-2 text-white shadow hover:opacity-90 transition"
+              disabled={submitting}
+              className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-5 py-2 text-white shadow hover:opacity-90 transition disabled:opacity-60"
             >
-              Save Owner
+              {submitting ? "Saving…" : "Save Owner"}
             </button>
           </div>
         </form>

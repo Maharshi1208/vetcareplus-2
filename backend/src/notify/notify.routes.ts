@@ -1,30 +1,21 @@
+// backend/src/notify/notify.routes.ts
 import { Router } from 'express';
-import nodemailer from 'nodemailer';
-import { isDocker } from '../lib/isDocker.js'; // ESM: note the .js on import after build
+import { sendMail } from '../lib/mailer.js';
 
 const router = Router();
-
-// Auto-pick host if not provided in env:
-const defaultSmtpHost = isDocker() ? 'mailhog' : '127.0.0.1';
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || defaultSmtpHost,
-  port: Number(process.env.SMTP_PORT || 1025),
-  secure: false,
-});
 
 router.get('/test', async (req, res) => {
   try {
     const to = (req.query.to as string) || 'test@local.test';
-    const info = await transporter.sendMail({
-      from: process.env.MAIL_FROM || 'VetCare+ <no-reply@vetcare.local>',
+    await sendMail({
       to,
       subject: 'VetCare+ Mail Test',
       text: 'This is a test email from VetCare+.',
+      html: '<p>This is a test email from <b>VetCare+</b>.</p>',
     });
-    res.json({ ok: true, messageId: info.messageId });
+    res.json({ ok: true });
   } catch (err: any) {
-    res.status(500).json({ ok: false, error: err.message || 'send failed' });
+    res.status(500).json({ ok: false, error: err?.message || 'send failed' });
   }
 });
 

@@ -1,9 +1,9 @@
+// src/pages/Owners.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { fetchOwnersFull, type OwnerFull } from "../services/dropdowns";
+import { apiGet, apiDelete, ApiError } from "../services/api";
 
 type FlashState = { type: "success" | "error" | "info"; message: string };
-
 type Row = {
   id: string;
   name: string;
@@ -28,7 +28,6 @@ export default function OwnersPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [q, setQ] = useState("");
 
-  // Flash banner (kept)
   const location = useLocation();
   const navigate = useNavigate();
   const [flash, setFlash] = useState<FlashState | null>(null);
@@ -41,25 +40,45 @@ export default function OwnersPage() {
     }
   }, [location, navigate]);
 
-  // Load owners from backend
+  async function loadOwners() {
+    const res = await apiGet<{ ok: boolean; owners?: any[]; error?: string }>("/owners");
+    if (!res.ok || !Array.isArray(res.owners)) {
+      throw new Error(res.error || "Failed to load owners");
+    }
+    const mapped: Row[] = res.owners.map((o: any) => ({
+      id: o.id,
+      name: (o.name ?? "").trim() || o.email,
+      email: o.email,
+      phone: (o.phone ?? "").trim() || "—",
+      status: o.suspended ? "Inactive" : "Active",
+    }));
+    setRows(mapped);
+  }
+
   useEffect(() => {
     (async () => {
       try {
-        const owners = await fetchOwnersFull(); // array
-        const mapped: Row[] = owners.map((o) => ({
-          id: o.id,
-          name: (o.name ?? "").trim() || o.email,
-          email: o.email,
-          phone: (o.phone ?? "").trim() || "—",
-          status: o.suspended ? "Inactive" : "Active",
-        }));
-        setRows(mapped);
-      } catch (e) {
+        await loadOwners();
+      } catch (e: any) {
         console.error("Failed to load owners:", e);
         setRows([]);
+        setFlash({ type: "error", message: e?.message ?? "Failed to load owners" });
       }
     })();
   }, []);
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this owner?")) return;
+    try {
+      const res = await apiDelete<unknown>(`/owners/${id}`);
+      // 204 has no body; request() already throws on !ok, so reaching here is success
+      setRows((r) => r.filter((x) => x.id !== id));
+      setFlash({ type: "success", message: "Owner deleted" });
+    } catch (err: any) {
+      const msg = (err as ApiError)?.data?.error || (err as ApiError)?.message || "Delete failed";
+      alert(msg);
+    }
+  }
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -93,21 +112,29 @@ export default function OwnersPage() {
 
       {/* Flash banner */}
       {flash && (
-        <div className="mt-4 flex items-start justify-between rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+        <div className={`mt-4 flex items-start justify-between rounded-xl border p-3 text-sm ${
+          flash.type === "success"
+            ? "border-green-200 bg-green-50 text-green-800"
+            : flash.type === "error"
+            ? "border-red-200 bg-red-50 text-red-800"
+            : "border-blue-200 bg-blue-50 text-blue-800"
+        }`}>
           <div className="flex items-center gap-2">
-            <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+            <span className={`inline-block h-2 w-2 rounded-full ${
+              flash.type === "success" ? "bg-green-500" : flash.type === "error" ? "bg-red-500" : "bg-blue-500"
+            }`} />
             <span className="font-medium">{flash.message}</span>
           </div>
           <button
             onClick={() => setFlash(null)}
-            className="rounded-md px-2 py-1 text-green-700 hover:bg-green-100"
+            className="rounded-md px-2 py-1 hover:bg-white/50"
           >
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Search & table */}
+      {/* Search & table (unchanged visuals) */}
       <div className="mt-5">
         <div className="rounded-2xl border bg-white shadow-sm">
           <div className="border-b p-4">
@@ -164,7 +191,7 @@ export default function OwnersPage() {
                               Edit
                             </Link>
                             <button
-                              onClick={() => alert("UI-only: delete not wired")}
+                              onClick={() => handleDelete(o.id)}
                               className="rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
                             >
                               Delete

@@ -1,3 +1,4 @@
+// backend/src/auth/routes.ts
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/db.js';
@@ -43,6 +44,20 @@ router.post('/register', async (req, res) => {
     select: { id: true, email: true, name: true, role: true, suspended: true, createdAt: true },
   });
 
+  // Fire-and-forget welcome email (don’t block response)
+  try {
+    await sendMail({
+      to: user.email,
+      subject: 'Welcome to VetCare+',
+      html: `
+        <p>Hi ${user.name ?? 'there'},</p>
+        <p>Welcome to <b>VetCare+</b>! You can sign in anytime at ${env.FRONTEND_URL ?? 'your portal'}.</p>
+        <p>- VetCare+ Team</p>
+      `,
+      text: `Welcome to VetCare+! Sign in at ${env.FRONTEND_URL ?? ''}`,
+    });
+  } catch {}
+
   const access = signAccessToken({ sub: user.id, email: user.email, role: user.role });
   return res.status(201).json({ ok: true, user, tokens: { access } });
 });
@@ -78,7 +93,7 @@ router.post('/login', async (req, res) => {
 /* ------------------------ Me (AUTH REQUIRED) ------------------------ */
 router.get('/me', authRequired, async (req: AuthedRequest, res) => {
   const me = await prisma.user.findUnique({
-    where: { id: req.user!.sub }, // AuthedRequest has .sub
+    where: { id: req.user!.sub },
     select: { id: true, email: true, name: true, role: true, suspended: true, createdAt: true },
   });
   if (!me) return res.status(404).json({ ok: false, error: 'Not found' });
@@ -86,11 +101,6 @@ router.get('/me', authRequired, async (req: AuthedRequest, res) => {
 });
 
 /* ------------------------ Password Reset: Request (PUBLIC) ------------------------ */
-/**
- * POST /auth/request-reset
- * body: { email: string }
- * Always 200 (avoid account enumeration).
- */
 router.post('/request-reset', async (req: Request, res: Response) => {
   const { email } = req.body ?? {};
   if (!email || typeof email !== 'string') {
@@ -113,14 +123,14 @@ router.post('/request-reset', async (req: Request, res: Response) => {
   });
 
   // Create token
-  const raw = crypto.randomBytes(32).toString('hex'); // 64 chars
+  const raw = crypto.randomBytes(32).toString('hex');
   const token = `${raw}.${crypto.randomBytes(6).toString('hex')}`;
   const ttlMinutes = 30;
   const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
 
   await prisma.resetToken.create({ data: { userId: user.id, token, expiresAt } });
 
-  // Build base URL for the frontend reset page
+  // Build reset link
   const base =
     env.RESET_LINK_BASE ??
     (env.FRONTEND_URL
@@ -147,7 +157,6 @@ router.post('/request-reset', async (req: Request, res: Response) => {
       text: `Reset your VetCare+ password: ${resetUrl}`,
     });
   } catch (err) {
-    // Don’t fail the response on email transport hiccups; user can request again
     console.error('sendMail error (request-reset):', err);
   }
 

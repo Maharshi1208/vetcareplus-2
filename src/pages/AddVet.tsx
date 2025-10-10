@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createVet } from "../services/vets"; // <-- added
+import { createVet } from "../services/vets";
 
 export default function AddVetPage() {
   const navigate = useNavigate();
@@ -15,8 +15,8 @@ export default function AddVetPage() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);      // <-- added
-  const [submitError, setSubmitError] = useState<string | null>(null); // <-- added
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   function set<K extends keyof typeof form>(k: K, v: any) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -33,6 +33,25 @@ export default function AddVetPage() {
     return Object.keys(e).length === 0;
   }
 
+  /** turn various server error shapes into a friendly message + per-field errors */
+  function extractServerError(err: any): { message: string; fieldErrors?: Record<string, string> } {
+    const data = err?.data ?? err?.response?.data ?? {};
+    const raw = data?.error ?? err?.message ?? "Failed to add vet.";
+    // Zod .flatten() shape: { formErrors: string[], fieldErrors: { [k]: string[] } }
+    if (raw && typeof raw === "object") {
+      const fe: Record<string, string> = {};
+      const fieldErrors = (raw as any).fieldErrors ?? {};
+      for (const k of Object.keys(fieldErrors)) {
+        const arr = fieldErrors[k];
+        if (Array.isArray(arr) && arr.length) fe[k] = String(arr[0]);
+      }
+      const formErrors = Array.isArray((raw as any).formErrors) ? (raw as any).formErrors : [];
+      const msg = formErrors[0] || "Please fix the highlighted fields.";
+      return { message: msg, fieldErrors: fe };
+    }
+    return { message: String(raw) };
+  }
+
   async function onSubmit(ev: React.FormEvent) {
     ev.preventDefault();
     if (!validate()) return;
@@ -40,8 +59,7 @@ export default function AddVetPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      // 🔗 Real API call (admin-only)
-      await createVet({
+      const res = await createVet({
         name: form.name,
         specialty: form.specialty || null,
         email: form.email || null,
@@ -50,14 +68,19 @@ export default function AddVetPage() {
         active: form.active,
       });
 
-      // flash + back to list
+      if ((res as any)?.ok === false) {
+        throw { data: res }; // normalize into the catch path below
+      }
+
       navigate("/vets", {
         state: { flash: { type: "success", message: "Vet saved" } },
       });
     } catch (err: any) {
-      // keep UI intact, just show a small banner
-      console.error(err);
-      setSubmitError("Failed to add vet. Please confirm you are logged in as admin.");
+      const { message, fieldErrors } = extractServerError(err);
+      if (fieldErrors && Object.keys(fieldErrors).length) {
+        setErrors((e) => ({ ...e, ...fieldErrors }));
+      }
+      setSubmitError(message || "Failed to add vet. Please confirm you are logged in as admin.");
     } finally {
       setSubmitting(false);
     }
@@ -94,7 +117,7 @@ export default function AddVetPage() {
             <h2 className="text-base font-medium">Vet Details</h2>
           </div>
 
-          {/* Submit error (keeps design minimal) */}
+          {/* Submit error banner */}
           {submitError && (
             <div className="mx-4 mt-4 rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700">
               {submitError}

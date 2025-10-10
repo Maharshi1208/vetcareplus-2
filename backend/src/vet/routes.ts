@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/db.js';
-import { authRequired, AuthedRequest, requireRole } from '../middleware/auth.js';
+import { authRequired, requireRole } from '../middleware/auth.js';
 import { hhmmToMinutes } from '../lib/time.js';
 
 const router = Router();
 const adminOnly = [authRequired, requireRole('ADMIN')] as const;
 
-// ---- NEW: Public (auth) dropdown endpoint (ARRAY shape) ----
+// ---- Public (auth) dropdown endpoint (ARRAY shape) ----
 router.get('/select', authRequired, async (_req, res) => {
   const vets = await prisma.vet.findMany({
     where: { active: true },
@@ -25,6 +25,7 @@ const vetCreateSchema = z.object({
   phone: z.string().optional(),
   specialty: z.string().optional(),
   bio: z.string().optional(),
+  active: z.boolean().optional(), // <-- accept active from UI
 });
 
 const vetUpdateSchema = z.object({
@@ -57,20 +58,27 @@ function toRange(startHHMM: string, endHHMM: string) {
   return { start, end };
 }
 
-async function hasConflict(vetId: string, weekday: number, start: number, end: number, excludeId?: string) {
+async function hasConflict(
+  vetId: string,
+  weekday: number,
+  start: number,
+  end: number,
+  excludeId?: string
+) {
   // Overlap if not (newEnd <= existingStart OR newStart >= existingEnd)
   const conflicts = await prisma.vetAvailability.findFirst({
     where: {
-      vetId, weekday,
+      vetId,
+      weekday,
       NOT: {
         OR: [
           { endMinutes: { lte: start } },
-          { startMinutes: { gte: end } }
-        ]
+          { startMinutes: { gte: end } },
+        ],
       },
-      ...(excludeId ? { id: { not: excludeId } } : {})
+      ...(excludeId ? { id: { not: excludeId } } : {}),
     },
-    select: { id: true }
+    select: { id: true },
   });
   return !!conflicts;
 }
@@ -78,21 +86,37 @@ async function hasConflict(vetId: string, weekday: number, start: number, end: n
 // ---- Vet profile CRUD (ADMIN) ----
 router.get('/', ...adminOnly, async (_req, res) => {
   const vets = await prisma.vet.findMany({
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
   });
   res.json({ ok: true, vets });
 });
 
 router.post('/', ...adminOnly, async (req, res) => {
   const parsed = vetCreateSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  }
 
   try {
-    const vet = await prisma.vet.create({ data: parsed.data });
-    res.status(201).json({ ok: true, vet });
+    const d = parsed.data;
+    const vet = await prisma.vet.create({
+      data: {
+        name: d.name,
+        email: d.email ?? null,
+        phone: d.phone ?? null,
+        specialty: d.specialty ?? null,
+        bio: d.bio ?? null,
+        active: d.active ?? true, // <-- respect checkbox (default true)
+      },
+    });
+    return res.status(201).json({ ok: true, vet });
   } catch (e: any) {
-    if (e?.code === 'P2002') return res.status(409).json({ ok: false, error: 'Email already in use' });
-    throw e;
+    // Unique constraint (commonly on email)
+    if (e?.code === 'P2002') {
+      return res.status(409).json({ ok: false, error: 'Email already in use' });
+    }
+    console.error('POST /vets error:', e);
+    return res.status(500).json({ ok: false, error: 'Internal Server Error' });
   }
 });
 
@@ -104,12 +128,21 @@ router.get('/:id', ...adminOnly, async (req, res) => {
 
 router.patch('/:id', ...adminOnly, async (req, res) => {
   const parsed = vetUpdateSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  }
 
   try {
-    const vet = await prisma.vet.update({ where: { id: req.params.id }, data: parsed.data });
-    res.json({ ok: true, vet });
-  } catch {
+    const vet = await prisma.vet.update({
+      where: { id: req.params.id },
+      data: parsed.data,
+    });
+    return res.json({ ok: true, vet });
+  } catch (e: any) {
+    if (e?.code === 'P2025') {
+      return res.status(404).json({ ok: false, error: 'Not found' });
+    }
+    console.error('PATCH /vets/:id error:', e);
     return res.status(404).json({ ok: false, error: 'Not found' });
   }
 });
@@ -117,9 +150,16 @@ router.patch('/:id', ...adminOnly, async (req, res) => {
 // Soft delete: active=false
 router.delete('/:id', ...adminOnly, async (req, res) => {
   try {
-    const vet = await prisma.vet.update({ where: { id: req.params.id }, data: { active: false } });
-    res.json({ ok: true, vet: { id: vet.id, active: vet.active } });
-  } catch {
+    const vet = await prisma.vet.update({
+      where: { id: req.params.id },
+      data: { active: false },
+    });
+    return res.json({ ok: true, vet: { id: vet.id, active: vet.active } });
+  } catch (e: any) {
+    if (e?.code === 'P2025') {
+      return res.status(404).json({ ok: false, error: 'Not found' });
+    }
+    console.error('DELETE /vets/:id error:', e);
     return res.status(404).json({ ok: false, error: 'Not found' });
   }
 });
@@ -128,14 +168,16 @@ router.delete('/:id', ...adminOnly, async (req, res) => {
 router.get('/:id/availability', ...adminOnly, async (req, res) => {
   const items = await prisma.vetAvailability.findMany({
     where: { vetId: req.params.id },
-    orderBy: [{ weekday: 'asc' }, { startMinutes: 'asc' }]
+    orderBy: [{ weekday: 'asc' }, { startMinutes: 'asc' }],
   });
   res.json({ ok: true, availability: items });
 });
 
 router.post('/:id/availability', ...adminOnly, async (req, res) => {
   const parsed = availabilityCreateSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  }
 
   const { weekday, start, end } = parsed.data;
   try {
@@ -144,9 +186,9 @@ router.post('/:id/availability', ...adminOnly, async (req, res) => {
       return res.status(409).json({ ok: false, error: 'Conflicting availability' });
     }
     const slot = await prisma.vetAvailability.create({
-      data: { vetId: req.params.id, weekday, startMinutes: s, endMinutes: e }
+      data: { vetId: req.params.id, weekday, startMinutes: s, endMinutes: e },
     });
-    res.status(201).json({ ok: true, slot });
+    return res.status(201).json({ ok: true, slot });
   } catch (err: any) {
     return res.status(400).json({ ok: false, error: err.message ?? 'Bad request' });
   }
@@ -154,14 +196,19 @@ router.post('/:id/availability', ...adminOnly, async (req, res) => {
 
 router.patch('/:id/availability/:slotId', ...adminOnly, async (req, res) => {
   const parsed = availabilityUpdateSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  }
 
   const slot = await prisma.vetAvailability.findUnique({ where: { id: req.params.slotId } });
-  if (!slot || slot.vetId !== req.params.id) return res.status(404).json({ ok: false, error: 'Not found' });
+  if (!slot || slot.vetId !== req.params.id) {
+    return res.status(404).json({ ok: false, error: 'Not found' });
+  }
 
   const weekday = parsed.data.weekday ?? slot.weekday;
   const s = parsed.data.start ? hhmmToMinutes(parsed.data.start) : slot.startMinutes;
   const e = parsed.data.end ? hhmmToMinutes(parsed.data.end) : slot.endMinutes;
+
   if (!(s >= 0 && s < 1440 && e > s && e <= 1440)) {
     return res.status(400).json({ ok: false, error: 'Invalid time range' });
   }
@@ -171,14 +218,16 @@ router.patch('/:id/availability/:slotId', ...adminOnly, async (req, res) => {
 
   const updated = await prisma.vetAvailability.update({
     where: { id: slot.id },
-    data: { weekday, startMinutes: s, endMinutes: e }
+    data: { weekday, startMinutes: s, endMinutes: e },
   });
   res.json({ ok: true, slot: updated });
 });
 
 router.delete('/:id/availability/:slotId', ...adminOnly, async (req, res) => {
   const slot = await prisma.vetAvailability.findUnique({ where: { id: req.params.slotId } });
-  if (!slot || slot.vetId !== req.params.id) return res.status(404).json({ ok: false, error: 'Not found' });
+  if (!slot || slot.vetId !== req.params.id) {
+    return res.status(404).json({ ok: false, error: 'Not found' });
+  }
 
   await prisma.vetAvailability.delete({ where: { id: slot.id } });
   res.json({ ok: true, deleted: { id: slot.id } });
