@@ -9,27 +9,9 @@ on:
 jobs:
   zap-scan:
     runs-on: ubuntu-latest
-
-    services:
-      db:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: vetcare
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=20
-
-      mailhog:
-        image: mailhog/mailhog:v1.0.1
-        ports:
-          - 1025:1025
-          - 8025:8025
+    env:
+      # unique compose project per run to avoid name collisions
+      COMPOSE_PROJECT_NAME: zap-${{ github.run_id }}
 
     steps:
       - name: Checkout
@@ -45,11 +27,15 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y jq curl
 
-      # Build and start just the API the same way you do locally
+      # make sure nothing is left over from a previous attempt
+      - name: Pre-clean (best effort)
+        run: docker compose -f infra/docker-compose.yml down -v --remove-orphans || true
+
+      # build and start the full stack defined in compose (db + mailhog + api)
       - name: Build API image
         run: docker compose -f infra/docker-compose.yml build api
 
-      - name: Start API (detached)
+      - name: Start stack
         run: docker compose -f infra/docker-compose.yml up -d api
 
       - name: Wait for API to be ready
@@ -68,7 +54,7 @@ jobs:
           docker compose -f infra/docker-compose.yml logs api || true
           exit 1
 
-      - name: Get Admin JWT
+      - name: Get Admin JWT (register if needed)
         env:
           API: http://localhost:4000
           ADMIN_EMAIL: admin@vetcare.local
@@ -81,9 +67,7 @@ jobs:
               -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" \
             | jq -r '.tokens.access // empty'
           }
-
           ACCESS="$(login || true)"
-
           if [ -z "$ACCESS" ]; then
             echo "Login failed; attempting to register admin then retry login..."
             curl -fsS "$API/auth/register" \
@@ -93,14 +77,12 @@ jobs:
             sleep 2
             ACCESS="$(login || true)"
           fi
-
           if [ -z "$ACCESS" ]; then
             echo "Failed to get admin token" >&2
             curl -sS "$API" || true
             docker compose -f infra/docker-compose.yml logs api || true
             exit 1
           fi
-
           echo "ACCESS=$ACCESS" >> "$GITHUB_ENV"
           echo "Got admin token."
 
