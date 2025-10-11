@@ -9,11 +9,26 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vetcare
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
     env:
       PORT: 4000
       NODE_ENV: test
-      # SQLite for CI
-      DATABASE_URL: file:./dev.db
+      # Prisma expects a Postgres URL (your schema provider is "postgresql")
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vetcare?schema=public
 
     steps:
       - name: Checkout
@@ -23,7 +38,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: backend/package-lock.json
 
       - name: Install deps (backend)
@@ -45,9 +60,11 @@ jobs:
       - name: Start API & healthcheck
         working-directory: backend
         run: |
-          node dist/server.js &
-          for i in {1..30}; do
+          node dist/server.js > server.log 2>&1 &
+          for i in {1..60}; do
             curl -sf "http://localhost:${PORT}/api/ping" && exit 0
             sleep 1
           done
-          echo "API failed to start"; exit 1
+          echo "API failed to start"
+          tail -n 200 server.log || true
+          exit 1

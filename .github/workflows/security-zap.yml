@@ -9,49 +9,67 @@ on:
 jobs:
   zap-scan:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vetcare
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
     env:
-      COMPOSE_PROJECT_NAME: zap-${{ github.run_id }}
       PORT: 4000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vetcare?schema=public
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
 
       - name: Install jq & curl
         run: |
           sudo apt-get update -y
           sudo apt-get install -y jq curl
 
-      # make sure nothing is left over from a previous attempt
-      - name: Pre-clean (best effort)
-        run: docker compose -f infra/docker-compose.yml down -v --remove-orphans || true
+      - name: Install deps
+        working-directory: backend
+        run: npm ci
 
-      # build and start the full stack defined in compose (db + mailhog + api)
-      - name: Build API image
-        run: docker compose -f infra/docker-compose.yml build api
-
-      - name: Start stack
-        run: docker compose -f infra/docker-compose.yml up -d api
-
-      - name: Wait for API to be ready
-        env:
-          URL: http://localhost:${{ env.PORT }}/api/ping
+      - name: Prisma generate & migrate
+        working-directory: backend
         run: |
-          echo "Waiting for $URL ..."
-          for i in $(seq 1 60); do
-            if curl -fsS "$URL" >/dev/null; then
-              echo "API is up"
-              exit 0
-            fi
+          npx prisma generate --schema prisma/schema.prisma
+          npx prisma migrate deploy --schema prisma/schema.prisma
+
+      - name: Build API
+        working-directory: backend
+        run: npm run build
+
+      - name: Start API (background) and wait
+        working-directory: backend
+        run: |
+          node dist/server.js > server.log 2>&1 &
+          for i in {1..60}; do
+            curl -sf "http://localhost:${PORT}/api/ping" && exit 0
             sleep 2
           done
-          echo "API did not become ready in time" >&2
-          docker compose -f infra/docker-compose.yml logs api || true
+          echo "API failed to start"
+          tail -n 200 server.log || true
           exit 1
 
       - name: Get Admin JWT (register if needed)
@@ -69,7 +87,7 @@ jobs:
           }
           ACCESS="$(login || true)"
           if [ -z "$ACCESS" ]; then
-            echo "Login failed; attempting to register admin then retry login..."
+            echo "Login failed; registering admin…"
             curl -fsS "$API/auth/register" \
               -H "Content-Type: application/json" \
               -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\",\"name\":\"Admin\"}" \
@@ -80,30 +98,28 @@ jobs:
           if [ -z "$ACCESS" ]; then
             echo "Failed to get admin token" >&2
             curl -sS "$API/ping" || true
-            docker compose -f infra/docker-compose.yml logs api || true
             exit 1
           fi
           echo "ACCESS=$ACCESS" >> "$GITHUB_ENV"
           echo "Got admin token."
 
-      - name: Pull ZAP image (GHCR)
+      - name: Pull ZAP image
         run: docker pull ghcr.io/zaproxy/zaproxy:stable
 
       - name: ZAP Baseline (passive)
         run: |
           docker run --rm -t --network host \
             -v "$PWD":/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py -t http://localhost:${{ env.PORT }}/api -r zap-baseline.html \
-            -c /zap/wrk/infra/zap-rules.tsv
+            zap-baseline.py -t http://localhost:${{ env.PORT }}/api -r zap-baseline.html
 
-      - name: ZAP API Scan (active, OpenAPI)
+      - name: ZAP API Scan (OpenAPI)
         env:
           ACCESS: ${{ env.ACCESS }}
         run: |
           docker run --rm -t --network host \
             -v "$PWD":/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable \
             zap-api-scan.py -t http://localhost:${{ env.PORT }}/api/docs/openapi.json -f openapi \
-            -r zap-openapi.html -c /zap/wrk/infra/zap-rules.tsv \
+            -r zap-openapi.html \
             -z "
               -config replacer.full_list(0).description=auth
               -config replacer.full_list(0).enabled=true
@@ -119,7 +135,3 @@ jobs:
           path: |
             zap-baseline.html
             zap-openapi.html
-
-      - name: Stop stack
-        if: always()
-        run: docker compose -f infra/docker-compose.yml down -v
