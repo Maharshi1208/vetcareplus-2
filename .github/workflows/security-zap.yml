@@ -48,7 +48,9 @@ jobs:
 
       - name: Install deps (backend)
         working-directory: backend
-        run: npm ci
+        run: |
+          npm ci
+          npm install --save-dev @types/node
 
       - name: Prisma generate & migrate
         working-directory: backend
@@ -56,11 +58,11 @@ jobs:
           npx prisma generate --schema prisma/schema.prisma
           npx prisma migrate deploy --schema prisma/schema.prisma
 
+      # Build just for syntax/type checking
       - name: Build API (type-check)
         working-directory: backend
         run: npm run build
 
-      # ✅ Run API from TS using tsx; wait for /api/ping
       - name: Start API (background) and wait
         working-directory: backend
         run: |
