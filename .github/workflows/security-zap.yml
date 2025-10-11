@@ -46,7 +46,7 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y jq curl
 
-      - name: Install deps
+      - name: Install deps (backend)
         working-directory: backend
         run: npm ci
 
@@ -56,14 +56,15 @@ jobs:
           npx prisma generate --schema prisma/schema.prisma
           npx prisma migrate deploy --schema prisma/schema.prisma
 
-      - name: Build API
+      - name: Build API (type-check)
         working-directory: backend
         run: npm run build
 
+      # ✅ Run API from TS using tsx; wait for /api/ping
       - name: Start API (background) and wait
         working-directory: backend
         run: |
-          node dist/server.js > server.log 2>&1 &
+          npx tsx src/server.ts > server.log 2>&1 &
           for i in {1..60}; do
             curl -sf "http://localhost:${PORT}/api/ping" && exit 0
             sleep 2

@@ -27,7 +27,6 @@ jobs:
     env:
       PORT: 4000
       NODE_ENV: test
-      # Prisma expects a Postgres URL (your schema provider is "postgresql")
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vetcare?schema=public
 
     steps:
@@ -53,14 +52,16 @@ jobs:
         working-directory: backend
         run: npx prisma migrate deploy --schema prisma/schema.prisma
 
-      - name: Build server
+      # Optional: keep build to ensure TS compiles, but we won't rely on dist/ to run
+      - name: Build server (type-check)
         working-directory: backend
         run: npm run build
 
+      # ✅ Start API directly from TS using tsx (avoids dist/app import issues)
       - name: Start API & healthcheck
         working-directory: backend
         run: |
-          node dist/server.js > server.log 2>&1 &
+          npx tsx src/server.ts > server.log 2>&1 &
           for i in {1..60}; do
             curl -sf "http://localhost:${PORT}/api/ping" && exit 0
             sleep 1
