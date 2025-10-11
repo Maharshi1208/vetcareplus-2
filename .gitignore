@@ -46,3 +46,6 @@ Thumbs.db
 # Windows ADS artifacts
 *Zone.Identifier
 *:*Zone.Identifier
+
+# Local ZAP reports
+zap-*.html

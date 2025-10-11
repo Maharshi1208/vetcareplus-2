@@ -1,88 +1,58 @@
-name: CI
-
+name: Backend CI
 on:
   push:
+    paths: ["backend/**", ".github/workflows/**"]
   pull_request:
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
-    env:
-      TZ: UTC
-      NODE_ENV: test
-      # DB
-      DATABASE_URL: postgresql://vc_user:vc_pass@localhost:5432/vetcare_test?schema=public
-      # Auth/mail (adjust if your app expects different names)
-      JWT_SECRET: ci_test_secret_please_change
-      SMTP_FROM: noreply@ci.local
-      SMTP_HOST: localhost
-      SMTP_PORT: "1025"
-
     services:
       postgres:
-        image: postgres:15
+        image: postgres:16
         env:
-          POSTGRES_USER: vc_user
-          POSTGRES_PASSWORD: vc_pass
-          POSTGRES_DB: vetcare_test
-        ports:
-          - "5432:5432"
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vetcare
+        ports: ["5432:5432"]
         options: >-
-          --health-cmd="pg_isready -U vc_user -d vetcare_test"
-          --health-interval=5s --health-timeout=5s --health-retries=30
-
-      mailhog:
-        image: mailhog/mailhog:v1.0.1
-        ports:
-          - "1025:1025"
-          - "8025:8025"
-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vetcare?schema=public
+      PRISMA_SCHEMA_PATH: backend/prisma/schema.prisma
+      BASE_URL: http://localhost:4000/api
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
           cache-dependency-path: backend/package-lock.json
-
       - name: Install deps
         working-directory: backend
         run: npm ci
-
-      - name: Show versions
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate --schema $PRISMA_SCHEMA_PATH
+      - name: Reset & migrate DB
         working-directory: backend
         run: |
-          node -v
-          npm -v
-          npx prisma -v
-
-      # Extra tiny wait even after healthy DB (helps CUDA-fast runners)
-      - name: Extra DB wait
-        run: sleep 3
-
-      - name: Prepare DB (migrate reset + generate)
+          npx prisma migrate deploy --schema $PRISMA_SCHEMA_PATH || true
+          npx prisma migrate reset --force --skip-generate --schema $PRISMA_SCHEMA_PATH
+      - name: Seed (optional)
         working-directory: backend
-        env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
-          npx prisma migrate reset --force --skip-seed=false
-          npx prisma generate
-
-      - name: Unit tests
+          if npm run -s | grep -q "^  seed$"; then npm run seed || true; fi
+      - name: Run tests
         working-directory: backend
-        run: npm run test:unit -- --ci --reporters=default
-
-      - name: Integration tests
+        run: npm test --silent
+      - name: Debug on failure
+        if: failure()
         working-directory: backend
-        # --runInBand avoids flakiness with DB, --detectOpenHandles helps surface hangs
-        run: npm run test:int -- --ci --runInBand --detectOpenHandles --coverage --reporters=default
-
-      - name: Upload coverage (ignore if missing)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-backend
-          path: backend/coverage
-          if-no-files-found: ignore
+        run: |
+          echo "=== prisma -v ==="; npx prisma -v || true
+          echo "=== migrations ==="; [ -d prisma/migrations ] && ls -la prisma/migrations || true
