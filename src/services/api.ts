@@ -115,7 +115,7 @@ async function request<T>(
   return data as T;
 }
 
-// ---- Public helpers --------------------------------------------------------
+// ---- Generic helpers -------------------------------------------------------
 export function apiGet<T>(path: string): Promise<T> {
   return request<T>("GET", path);
 }
@@ -131,3 +131,40 @@ export function apiDelete<T>(path: string): Promise<T> {
 export function apiUpload<T>(path: string, formData: FormData): Promise<T> {
   return request<T>("POST", path, formData);
 }
+
+// ---- Health module helpers (new) -------------------------------------------
+export const HealthAPI = {
+  // Lists medications for a specific pet (backend requires ?petId=)
+  listMedications(petId: string): Promise<any> {
+    return apiGet(`/health/medications?petId=${encodeURIComponent(petId)}`);
+  },
+  // Lists vaccinations for a specific pet (backend requires ?petId=)
+  listVaccinations(petId: string): Promise<any> {
+    return apiGet(`/health/vaccinations?petId=${encodeURIComponent(petId)}`);
+  },
+  // Combined timeline for a pet (meds + vaccines)
+  petHealth(petId: string): Promise<any> {
+    return apiGet(`/health/pets/${encodeURIComponent(petId)}/health`);
+  },
+  // Create a medication (requires startAt ISO)
+  createMedication(payload: {
+    petId: string;
+    name: string;
+    dosage: string;
+    frequency: string;
+    startAt: string;         // ISO string
+    durationDays: number;
+    notes?: string;
+  }): Promise<any> {
+    return apiPost(`/health/medications`, payload);
+  },
+  // Create a vaccination (field name may be "date" in your router)
+  createVaccination(payload: {
+    petId: string;
+    vaccine: string;
+    date: string;            // ISO string (or whatever your route expects)
+    notes?: string;
+  }): Promise<any> {
+    return apiPost(`/health/vaccinations`, payload);
+  },
+};

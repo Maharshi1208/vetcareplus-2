@@ -2,14 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { fetchPetsForHealth, type PetOption } from "../services/dropdowns";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+import { HealthAPI, ApiError } from "../services/api";
 
 export default function AddMedication() {
   const navigate = useNavigate();
   const { role } = useAuth();
 
-  // --- Pet dropdown (unchanged logic) ---
+  // --- Pet dropdown ---
   const [pets, setPets] = useState<PetOption[]>([]);
   const [petId, setPetId] = useState("");
 
@@ -20,7 +19,7 @@ export default function AddMedication() {
   const [duration, setDuration] = useState(""); // days (string)
   const [notes, setNotes] = useState("");
 
-  // Load pets: VET/ADMIN => all pets, OWNER => only theirs (unchanged)
+  // Load pets
   useEffect(() => {
     (async () => {
       try {
@@ -34,7 +33,6 @@ export default function AddMedication() {
     })();
   }, [role]);
 
-  // helpers
   const parseDays = (raw: string): number | null => {
     if (!raw) return null;
     const n = Number(raw);
@@ -50,63 +48,37 @@ export default function AddMedication() {
 
   async function handleSave() {
     if (isDisabled) {
-      // Give a specific hint when duration is invalid
       if (parseDays(duration) === null) {
         alert("Duration must be a positive whole number of days (e.g. 7).");
       }
       return;
     }
 
-    const token =
-      localStorage.getItem("access") || localStorage.getItem("token") || "";
-
     const durationDays = parseDays(duration)!; // safe due to isDisabled guard
-    const composedNotes = [clean(frequency), clean(notes)]
-      .filter(Boolean)
-      .join(" — ");
-
-    const body = {
-      petId,
-      name: clean(name),
-      dosage: clean(dosage),
-      startAt: new Date().toISOString(), // using "today" as start
-      durationDays,
-      notes: composedNotes,
-    };
+    const composedNotes = [clean(frequency), clean(notes)].filter(Boolean).join(" — ");
 
     try {
-      const res = await fetch(`${API_URL}/medications`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: "include",
-        body: JSON.stringify(body),
+      await HealthAPI.createMedication({
+        petId,
+        name: clean(name),
+        dosage: clean(dosage),
+        frequency: clean(frequency) || "as directed",
+        startAt: new Date().toISOString(), // backend requires startAt
+        durationDays,
+        notes: composedNotes,
       });
-
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok || !json?.ok) {
-        const msg =
-          json?.error ||
-          json?.message ||
-          (json?.fieldErrors &&
-            Object.values(json.fieldErrors)
-              .flat()
-              .join(", ")) ||
-          "Failed to save medication.";
-        alert(msg);
-        return;
-      }
 
       navigate("/health", {
         state: {
           flash: { type: "success", message: `Medication “${clean(name)}” added.` },
         },
       });
-    } catch (e: any) {
-      alert(e?.message || "Network error.");
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? e.message || `HTTP ${e.status}`
+          : (e as any)?.message || "Network error";
+      alert(msg);
     }
   }
 
@@ -129,7 +101,7 @@ export default function AddMedication() {
       </div>
 
       <div className="rounded-2xl border p-4 md:p-6 space-y-6">
-        {/* Pet (unchanged design/logic) */}
+        {/* Pet */}
         <div>
           <label className="block text-sm text-gray-600 mb-1">Pet</label>
           <select

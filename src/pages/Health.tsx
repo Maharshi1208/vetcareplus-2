@@ -1,4 +1,3 @@
-// src/pages/Health.tsx
 import React, { useMemo, useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { fetchPetsForHealth, type PetOption } from "../services/dropdowns";
@@ -65,7 +64,8 @@ export default function HealthPage() {
       }
       setLoading(true);
       try {
-        const json = await apiGet<{ ok: boolean; timeline: any[] }>(`/pets/${petFilter}/health`);
+        // FIX: add "/health" prefix
+        const json = await apiGet<{ ok: boolean; timeline: any[] }>(`/health/pets/${petFilter}/health`);
         if (!alive) return;
         if (!json?.ok) {
           setEntries([]);
@@ -131,7 +131,7 @@ export default function HealthPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Health Records</h1>
-          <p className="text-sm text-gray-500">Vaccinations and medications (UI-only).</p>
+          <p className="text-sm text-gray-500">Vaccinations and medications.</p>
         </div>
         {role !== "OWNER" && (
           <div className="flex items-center gap-2">
@@ -145,6 +145,7 @@ export default function HealthPage() {
         )}
       </div>
 
+      {/* flash */}
       {flash && (
         <div className="flex items-start justify-between rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">
           <div className="flex items-center gap-2">
@@ -198,7 +199,7 @@ export default function HealthPage() {
           ) : filtered.length === 0 ? (
             <div className="text-sm text-gray-600">
               {pets.length === 0
-                ? "No pets available. (If you’re a vet, make sure the API allows listing pets.)"
+                ? "No pets available."
                 : petFilter
                 ? "No health records for this pet."
                 : "Select a pet to see their health records."}
@@ -227,15 +228,7 @@ export default function HealthPage() {
                     >
                       View
                     </Link>
-                    {role !== "OWNER" && (
-                      <Link
-                        to={`/vaccines/${e.id}/edit`}
-                        state={{ entry: e }}
-                        className="rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 px-3 py-1 text-sm text-white shadow-sm hover:opacity-90"
-                      >
-                        Edit
-                      </Link>
-                    )}
+                    {/* keep edit gated if needed */}
                   </div>
                 </li>
               ))}

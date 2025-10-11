@@ -11,6 +11,7 @@ import apptRoutes from "./appt/routes";
 import petRoutes from "./pet/routes";
 import metricsRoutes from "./metrics/routes";
 import adminRoutes from "./admin/routes";
+import healthRoutes from "./health/routes"; // ⬅️ ADDED
 
 // Health/Docs helpers
 import { openapiSpec } from "./docs/openapi";
@@ -160,7 +161,10 @@ app.use(`${PREFIX}/vets`, vetRoutes);
 // Support /appointments, /appts, and /appointment (singular alias)
 app.use(`${PREFIX}/appointments`, apptRoutes);
 app.use(`${PREFIX}/appts`, apptRoutes);
-app.use(`${PREFIX}/appointment`, apptRoutes); // ← added
+app.use(`${PREFIX}/appointment`, apptRoutes);
+
+// ⬇️ Mount Health module (medications, vaccinations, pet health)
+app.use(`${PREFIX}/health`, healthRoutes);
 
 app.use(`${PREFIX}/pets`, petRoutes);
 app.use(`${PREFIX}/metrics`, metricsRoutes);

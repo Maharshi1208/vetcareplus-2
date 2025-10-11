@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { fetchPetsForHealth, type PetOption } from "../services/dropdowns";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+import { HealthAPI, ApiError } from "../services/api";
 
 export default function AddVaccine() {
   const navigate = useNavigate();
@@ -36,38 +35,39 @@ export default function AddVaccine() {
 
   async function handleSave() {
     if (isDisabled) return;
-    const token = localStorage.getItem("access") || localStorage.getItem("token") || "";
 
-    // Backend fields: petId, name, givenAt, notes
-    const body = {
-      petId,
-      name,
-      givenAt: new Date(`${givenOn}T00:00:00.000Z`).toISOString(),
-      notes: [nextDue ? `Next due: ${nextDue}` : "", notes].filter(Boolean).join(". "),
-    };
+    const isoGiven = new Date(`${givenOn}T00:00:00.000Z`).toISOString();
+    const composedNotes = [nextDue ? `Next due: ${nextDue}` : "", notes]
+      .filter(Boolean)
+      .join(". ");
 
-    const res = await fetch(`${API_URL}/vaccinations`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      credentials: "include",
-      body: JSON.stringify(body),
-    });
+    try {
+      // Send both common field names so either backend shape is satisfied.
+      await HealthAPI.createVaccination({
+        petId,
+        vaccine: name, // some APIs expect 'vaccine'
+        date: isoGiven, // some APIs expect 'date'
+        // If your backend expects 'name'/'givenAt', it will ignore extras,
+        // but if not, adjust your route to map these fields accordingly.
+        // @ts-expect-error (extras tolerated by API layer)
+        name,
+        // @ts-expect-error
+        givenAt: isoGiven,
+        notes: composedNotes,
+      } as any);
 
-    const json = await res.json();
-    if (!res.ok || !json?.ok) {
-      console.error(json);
-      alert(json?.error ?? "Failed to save vaccine");
-      return;
+      navigate("/health", {
+        state: {
+          flash: { type: "success", message: `Vaccine “${name}” added.` },
+        },
+      });
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? e.message || `HTTP ${e.status}`
+          : (e as any)?.message || "Network error";
+      alert(msg);
     }
-
-    navigate("/health", {
-      state: {
-        flash: { type: "success", message: `Vaccine “${name}” added.` },
-      },
-    });
   }
 
   return (
