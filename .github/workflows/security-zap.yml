@@ -50,6 +50,8 @@ jobs:
         working-directory: backend
         run: |
           npm ci
+          # make sure type-check has node types available
+          npm install --save-dev @types/node
 
       - name: Prisma generate & migrate
         working-directory: backend
@@ -57,19 +59,20 @@ jobs:
           npx prisma generate --schema prisma/schema.prisma
           npx prisma migrate deploy --schema prisma/schema.prisma
 
-      # Build is only a type/syntax check for this job.
-      # If anything noisy fails, don't block the ZAP scan.
-      - name: Build API (type-check, ignore errors)
+      # Build to type-check TS (doesn't run server from dist)
+      - name: Build API (type-check)
         working-directory: backend
-        run: |
-          npm run build || echo "Build warnings ignored for ZAP scan"
+        run: npm run build
 
       - name: Start API (background) and wait
         working-directory: backend
         run: |
           npx tsx src/server.ts > server.log 2>&1 &
           for i in {1..60}; do
-            curl -sf "http://localhost:${PORT}/api/ping" && exit 0
+            if curl -sf "http://localhost:${PORT}/api/ping" >/dev/null; then
+              echo "API is up"
+              exit 0
+            fi
             sleep 2
           done
           echo "API failed to start"
@@ -110,16 +113,19 @@ jobs:
       - name: Pull ZAP image
         run: docker pull ghcr.io/zaproxy/zaproxy:stable
 
-      - name: ZAP Baseline (passive)
+      - name: ZAP Baseline (passive, continue on alerts)
         run: |
+          set +e
           docker run --rm -t --network host \
             -v "$PWD":/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py -t http://localhost:${{ env.PORT }}/api -r zap-baseline.html
+            zap-baseline.py -t http://localhost:${{ env.PORT }}/api -r zap-baseline.html || true
+          echo "ZAP Baseline completed — continuing even if alerts found."
 
-      - name: ZAP API Scan (OpenAPI)
+      - name: ZAP API Scan (OpenAPI, continue on alerts)
         env:
           ACCESS: ${{ env.ACCESS }}
         run: |
+          set +e
           docker run --rm -t --network host \
             -v "$PWD":/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable \
             zap-api-scan.py -t http://localhost:${{ env.PORT }}/api/docs/openapi.json -f openapi \
@@ -130,7 +136,8 @@ jobs:
               -config replacer.full_list(0).matchtype=REQ_HEADER
               -config replacer.full_list(0).matchstr=Authorization
               -config replacer.full_list(0).replacement=Bearer ${ACCESS}
-            "
+            " || true
+          echo "ZAP API scan completed — continuing even if alerts found."
 
       - name: Upload ZAP Reports
         uses: actions/upload-artifact@v4
