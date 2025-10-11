@@ -113,7 +113,7 @@ app.get("/robots.txt", (_req, res) => {
 });
 app.get("/sitemap.xml", (_req, res) => res.status(204).end());
 
-// Root banner (tests expect a textual banner mentioning VetCare+)
+// Root banner
 app.get("/", (_req, res) =>
   res.status(200).send("VetCare+ API is running (env=" + NODE_ENV + ")")
 );
@@ -128,14 +128,13 @@ if (PREFIX !== "/api") {
   );
 }
 
-// ---- Health endpoints expected by tests ----
+// ---- Health endpoints ----
 app.get(`${PREFIX}/health`, (_req, res) => {
   res.json({ ok: true, uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
 
 app.get(`${PREFIX}/health/db`, async (_req, res) => {
   try {
-    // ensure a live connection first, then trivial query
     await prisma.$connect();
     await prisma.$queryRaw`SELECT 1`;
     res.json({ ok: true });
@@ -147,7 +146,7 @@ app.get(`${PREFIX}/health/db`, async (_req, res) => {
   }
 });
 
-// ---- Docs: serve OpenAPI JSON at /docs/openapi.json ----
+// ---- Docs: serve OpenAPI JSON ----
 import expressRouter from "express";
 const docsRouter = expressRouter.Router();
 docsRouter.get("/openapi.json", (_req, res) => res.json(openapiSpec));
@@ -158,9 +157,10 @@ app.use(`${PREFIX}/auth`, authRoutes);
 app.use(`${PREFIX}/owners`, ownerRoutes);
 app.use(`${PREFIX}/vets`, vetRoutes);
 
-// Support both /appointments and /appts
+// Support /appointments, /appts, and /appointment (singular alias)
 app.use(`${PREFIX}/appointments`, apptRoutes);
 app.use(`${PREFIX}/appts`, apptRoutes);
+app.use(`${PREFIX}/appointment`, apptRoutes); // ← added
 
 app.use(`${PREFIX}/pets`, petRoutes);
 app.use(`${PREFIX}/metrics`, metricsRoutes);

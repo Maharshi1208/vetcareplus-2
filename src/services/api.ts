@@ -1,10 +1,11 @@
 // src/services/api.ts
 
 // === Base URL ===
-// Prefer env, fall back to local API *with /api prefix*
-const RAW_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
-// remove trailing slashes
-export const API_URL = RAW_BASE.replace(/\/+$/, "");
+// If VITE_API_URL is set, use it; otherwise default to http://localhost:4000
+const RAW = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/+$/, "");
+
+// Ensure the base ends with "/api" exactly once (idempotent)
+export const API_URL = RAW.endsWith("/api") ? RAW : `${RAW}/api`;
 
 // ---- Token helpers ---------------------------------------------------------
 const TOKEN_KEYS = ["access", "token", "authToken"] as const;
@@ -86,14 +87,12 @@ async function request<T>(
 
     if (import.meta.env.DEV && (headers as any).Authorization) {
       console.log("[API] base:", API_URL, "→", url);
-      console.log("[API] Authorization:", (headers as any).Authorization);
     }
 
     res = await fetch(url, {
       method,
       headers,
       body: body == null ? undefined : (isForm ? (body as any) : JSON.stringify(body)),
-      // credentials: "include", // uncomment if you use httpOnly cookies
     });
   } catch (e: any) {
     throw new ApiError(0, null, e?.message || "Network error");
