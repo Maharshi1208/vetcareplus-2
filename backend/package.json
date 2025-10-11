@@ -8,18 +8,24 @@
     "dev": "dotenv -e ../.env -- tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "dotenv -e ../.env -- node dist/server.js",
+
     "test": "npm run test:unit && npm run test:int",
-    "test:unit": "jest --config ./jest.config.ts --passWithNoTests --ci --reporters=default --testPathPattern=\".*\\\\.unit\\\\.test\\\\.ts$\"",
-    "test:int": "jest --config ./jest.config.ts --runInBand --detectOpenHandles --ci --reporters=default --testPathPattern=\".*\\\\.int\\\\.test\\\\.ts$\"",
-    "coverage": "npm run test:int -- --coverage",
-    "db:test:reset": "prisma migrate reset --force && prisma generate",
+    "test:unit": "dotenv -e ./.env.test -- jest --config ./jest.config.ts --passWithNoTests --ci --reporters=default --testPathPattern=\".*\\\\.unit\\\\.test\\\\.ts$\"",
+    "pretest:int": "dotenv -e ./.env.test -- prisma migrate reset --force --skip-generate && dotenv -e ./.env.test -- prisma db seed",
+    "test:int": "dotenv -e ./.env.test -- jest --config ./jest.config.ts --runInBand --detectOpenHandles --ci --reporters=default --testPathPattern=\".*\\\\.int\\\\.test\\\\.ts$\"",
+
+    "coverage": "dotenv -e ./.env.test -- jest --config ./jest.config.ts --runInBand --detectOpenHandles --ci --coverage --reporters=default",
+    "coverage:html": "dotenv -e ./.env.test -- jest --config ./jest.config.ts --coverage --coverageReporters=html",
+
+    "db:test:reset": "dotenv -e ./.env.test -- prisma migrate reset --force && dotenv -e ./.env.test -- prisma generate",
+    "db:test:push": "dotenv -e ./.env.test -- prisma db push",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:reset": "prisma migrate reset --force",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
-    "test:ci": "jest --config ./jest.config.ts --runInBand --detectOpenHandles --ci --coverage --reporters=default",
-    "coverage:html": "jest --config ./jest.config.ts --coverage --coverageReporters=html"
+
+    "test:ci": "dotenv -e ./.env.test -- jest --config ./jest.config.ts --runInBand --detectOpenHandles --ci --coverage --reporters=default"
   },
   "keywords": [],
   "author": "",

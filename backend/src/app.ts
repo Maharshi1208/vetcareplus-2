@@ -8,14 +8,23 @@ import authRoutes from "./auth/routes";
 import ownerRoutes from "./owner/routes";
 import vetRoutes from "./vet/routes";
 import apptRoutes from "./appt/routes";
-import petRoutes from "./pet/routes";          // ⬅️ ADD
-import metricsRoutes from "./metrics/routes";  // ⬅️ ADD
+import petRoutes from "./pet/routes";
+import metricsRoutes from "./metrics/routes";
+import adminRoutes from "./admin/routes";
+
+// Health/Docs helpers
+import { openapiSpec } from "./docs/openapi";
+// ⬇️ Use the named export and include .js for ESM consistency
+import { prisma } from "./prisma.js";
 
 const app = express();
 
 const NODE_ENV = process.env.NODE_ENV ?? "development";
 const FRONTEND_URL = (process.env.FRONTEND_URL ?? "http://localhost:5173").replace(/\/+$/, "");
 const APP_URL = (process.env.APP_URL ?? "http://localhost:4000").replace(/\/+$/, "");
+
+// ✅ Configurable API prefix. In tests, default to '' so routes mount at root.
+const PREFIX = process.env.API_PREFIX ?? (NODE_ENV === "test" ? "" : "/api");
 
 // CORS
 const corsOrigins = new Set<string>([FRONTEND_URL, APP_URL]);
@@ -57,7 +66,7 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self' data:",
-    `connect-src 'self' ${FRONTEND_URL} ${APP_URL} ${APP_URL}/api`,
+    `connect-src 'self' ${FRONTEND_URL} ${APP_URL} ${APP_URL}${PREFIX}`,
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",
@@ -102,21 +111,60 @@ app.get("/robots.txt", (_req, res) => {
   res.setHeader("Content-Type", "text/plain");
   res.send("User-agent: *\nDisallow: /");
 });
-
 app.get("/sitemap.xml", (_req, res) => res.status(204).end());
 
-// Health/root
-app.get("/", (_req, res) => res.status(200).json({ ok: true, env: NODE_ENV }));
-app.get("/ping", (_req, res) => res.json({ ok: true, pong: new Date().toISOString() }));
-app.get("/api/ping", (_req, res) => res.json({ ok: true, pong: new Date().toISOString() }));
+// Root banner (tests expect a textual banner mentioning VetCare+)
+app.get("/", (_req, res) =>
+  res.status(200).send("VetCare+ API is running (env=" + NODE_ENV + ")")
+);
+
+// Ping
+app.get(`${PREFIX}/ping`, (_req, res) =>
+  res.json({ ok: true, pong: new Date().toISOString() })
+);
+if (PREFIX !== "/api") {
+  app.get("/api/ping", (_req, res) =>
+    res.json({ ok: true, pong: new Date().toISOString() })
+  );
+}
+
+// ---- Health endpoints expected by tests ----
+app.get(`${PREFIX}/health`, (_req, res) => {
+  res.json({ ok: true, uptime: process.uptime(), timestamp: new Date().toISOString() });
+});
+
+app.get(`${PREFIX}/health/db`, async (_req, res) => {
+  try {
+    // ensure a live connection first, then trivial query
+    await prisma.$connect();
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ ok: true });
+  } catch (e) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Health DB error:", (e as any)?.message || e);
+    }
+    res.status(500).json({ ok: false });
+  }
+});
+
+// ---- Docs: serve OpenAPI JSON at /docs/openapi.json ----
+import expressRouter from "express";
+const docsRouter = expressRouter.Router();
+docsRouter.get("/openapi.json", (_req, res) => res.json(openapiSpec));
+app.use(`${PREFIX}/docs`, docsRouter);
 
 // === API Mounts (keep BEFORE 404) ===
-app.use("/api/auth", authRoutes);
-app.use("/api/owners", ownerRoutes);
-app.use("/api/vets", vetRoutes);
-app.use("/api/appts", apptRoutes);
-app.use("/api/pets", petRoutes);          // ⬅️ ADD
-app.use("/api/metrics", metricsRoutes);   // ⬅️ ADD
+app.use(`${PREFIX}/auth`, authRoutes);
+app.use(`${PREFIX}/owners`, ownerRoutes);
+app.use(`${PREFIX}/vets`, vetRoutes);
+
+// Support both /appointments and /appts
+app.use(`${PREFIX}/appointments`, apptRoutes);
+app.use(`${PREFIX}/appts`, apptRoutes);
+
+app.use(`${PREFIX}/pets`, petRoutes);
+app.use(`${PREFIX}/metrics`, metricsRoutes);
+app.use(`${PREFIX}/admin`, adminRoutes);
 
 // 404 LAST
 app.use((_req, res) => res.status(404).json({ error: "Not Found" }));
