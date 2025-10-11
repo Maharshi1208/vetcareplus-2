@@ -1,5 +1,5 @@
 // src/services/appointments.ts
-import { apiGet, apiPost, apiPatch, apiDelete } from "./api";
+import { apiGet, apiPost, apiPatch, apiDelete, ApiError } from "./api";
 
 /** ---- Types ---- */
 export type AppointmentStatus = "BOOKED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
@@ -13,7 +13,7 @@ export type Appointment = {
   status: AppointmentStatus;
   reason: string | null;
   notes: string | null;
-  // Optional expansions (observed in your backend responses)
+  // Optional expansions (observed in backend responses)
   pet?: { name: string; ownerId: string };
   vet?: { name: string; specialty: string | null };
   createdAt?: string;
@@ -22,23 +22,36 @@ export type Appointment = {
 
 export type AppointmentListResponse = {
   ok: boolean;
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-  hasPrev: boolean;
-  hasNext: boolean;
-  appointments: Appointment[];
+  page?: number;
+  pageSize?: number;
+  total?: number;
+  totalPages?: number;
+  hasPrev?: boolean;
+  hasNext?: boolean;
+  appointments?: Appointment[]; // primary shape
+  appts?: Appointment[];        // legacy/alt shape
 };
 
-export type AppointmentResponse = { ok: boolean; appointment: Appointment };
+export type AppointmentResponse = {
+  ok: boolean;
+  appointment?: Appointment; // primary
+  appt?: Appointment;        // alt
+};
 
 /** ---- Utils ---- */
-function errMsg(e: any): string {
-  const data = e?.response?.data;
+function errMsg(e: unknown): string {
+  if (e instanceof ApiError) {
+    const d = e.data;
+    if (typeof d === "string") return d;
+    if (d?.error) return String(d.error);
+    if (d?.message) return String(d.message);
+    return `HTTP ${e.status}`;
+  }
+  const any = e as any;
+  const data = any?.response?.data;
   if (typeof data === "string") return data;
   if (data?.error) return String(data.error);
-  return e?.message || e?.response?.statusText || "Request failed";
+  return any?.message || "Request failed";
 }
 
 function plusOneDay(yyyyMmDd: string): string {
@@ -74,13 +87,19 @@ export async function listAppointments(params?: {
     qs.set("to", plusOneDay(params.date));
   }
   const q = qs.toString();
-  const url = q ? `/appointments?${q}` : "/appointments";
-  return apiGet<AppointmentListResponse>(url);
+  const url = q ? `/appts?${q}` : "/appts";
+
+  const data = await apiGet<AppointmentListResponse>(url);
+  // normalize list
+  const list = Array.isArray(data.appointments) ? data.appointments
+            : Array.isArray((data as any).appts) ? (data as any).appts
+            : [];
+  return { ...data, appointments: list };
 }
 
 export async function getAppointment(id: string): Promise<Appointment> {
-  const data = await apiGet<AppointmentResponse>(`/appointments/${id}`);
-  return data.appointment;
+  const data = await apiGet<AppointmentResponse>(`/appts/${id}`);
+  return (data.appointment ?? data.appt)!;
 }
 
 /** ---- Create / Update / Delete ---- */
@@ -94,20 +113,20 @@ export async function createAppointment(payload: {
   reason?: string | null;
   notes?: string | null;
 }): Promise<Appointment> {
-  const data = await apiPost<AppointmentResponse>("/appointments", payload);
-  return data.appointment;
+  const data = await apiPost<AppointmentResponse>("/appts", payload);
+  return (data.appointment ?? data.appt)!;
 }
 
 export async function updateAppointment(
   id: string,
   input: Partial<Pick<Appointment, "start" | "end" | "status" | "reason" | "notes">>
 ): Promise<Appointment> {
-  const data = await apiPatch<AppointmentResponse>(`/appointments/${id}`, input);
-  return data.appointment;
+  const data = await apiPatch<AppointmentResponse>(`/appts/${id}`, input);
+  return (data.appointment ?? data.appt)!;
 }
 
 export async function deleteAppointment(id: string): Promise<{ ok: true }> {
-  return apiDelete(`/appointments/${id}`);
+  return apiDelete(`/appts/${id}`);
 }
 
 /** ---- Reschedule ---- */
@@ -120,16 +139,16 @@ export async function rescheduleAppointment(
     start: torontoISO(input.date, input.start),
     end: torontoISO(input.date, input.end),
   };
-  const data = await apiPatch<AppointmentResponse>(`/appointments/${id}/reschedule`, payload);
-  return data.appointment;
+  const data = await apiPatch<AppointmentResponse>(`/appts/${id}/reschedule`, payload);
+  return (data.appointment ?? data.appt)!;
 }
 
-/** ---- Robust status updater (with fallbacks that match your backend) ----
+/** ---- Robust status updater (with fallbacks that match backend) ----
  * Order:
- *  1) POST /appointments/:id/status   { status }   ← you added this
- *  2) PATCH /appointments/:id         { status }   ← some servers support this
- *  3) PATCH /appointments/:id/cancel               ← explicit for CANCELLED
- *     PATCH /appointments/:id/restore              ← explicit for BOOKED
+ *  1) POST /appts/:id/status   { status }   ← preferred
+ *  2) PATCH /appts/:id         { status }   ← fallback
+ *  3) PATCH /appts/:id/cancel               ← explicit for CANCELLED
+ *     PATCH /appts/:id/restore              ← explicit for BOOKED
  */
 export async function updateAppointmentStatus(
   id: string,
@@ -137,23 +156,23 @@ export async function updateAppointmentStatus(
 ): Promise<Appointment> {
   // 1) preferred: generic status endpoint
   try {
-    const d = await apiPost<AppointmentResponse>(`/appointments/${id}/status`, { status });
-    return d.appointment;
+    const d = await apiPost<AppointmentResponse>(`/appts/${id}/status`, { status });
+    return (d.appointment ?? d.appt)!;
   } catch (e1: any) {
     // 2) generic PATCH
     try {
-      const d = await apiPatch<AppointmentResponse>(`/appointments/${id}`, { status });
-      return d.appointment;
+      const d = await apiPatch<AppointmentResponse>(`/appts/${id}`, { status });
+      return (d.appointment ?? d.appt)!;
     } catch (e2: any) {
       // 3) explicit verbs for cancel/restore
       try {
         if (status === "CANCELLED") {
-          const d = await apiPatch<AppointmentResponse>(`/appointments/${id}/cancel`, {});
-          return d.appointment;
+          const d = await apiPatch<AppointmentResponse>(`/appts/${id}/cancel`, {});
+          return (d.appointment ?? d.appt)!;
         }
         if (status === "BOOKED") {
-          const d = await apiPatch<AppointmentResponse>(`/appointments/${id}/restore`, {});
-          return d.appointment;
+          const d = await apiPatch<AppointmentResponse>(`/appts/${id}/restore`, {});
+          return (d.appointment ?? d.appt)!;
         }
       } catch (e3: any) {
         throw new Error(

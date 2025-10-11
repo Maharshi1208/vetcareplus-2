@@ -1,30 +1,43 @@
 // src/context/AuthContext.tsx
 import { createContext, useContext, useEffect, useState } from "react";
+import {
+  API_URL as API_BASE,     // normalized base (includes /api)
+  getAccessToken,
+  setAccessToken,
+  clearTokens,
+} from "../services/api";
 
 type Role = "OWNER" | "VET" | "ADMIN";
+type User = { id?: string; email?: string; name?: string; role?: Role } | null;
 type Decoded = { sub?: string; role?: Role; exp?: number };
 
 type Ctx = {
   token: string | null;
+  user: User;
   role: Role | null;
+  isAdmin: boolean;
   loading: boolean;
-  login: (t: string) => Promise<void>;
+  // `user` param is optional so existing calls `login(token)` still work.
+  login: (t: string, user?: NonNullable<User>) => Promise<void>;
   logout: () => void;
   refreshRole: () => Promise<void>;
 };
 
 const AuthCtx = createContext<Ctx>({
   token: null,
+  user: null,
   role: null,
+  isAdmin: false,
   loading: true,
   login: async () => {},
   logout: () => {},
   refreshRole: async () => {},
 });
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+// Use the same base URL as api.ts (already trimmed and includes /api)
+const API_URL = API_BASE;
 
-// minimal, safe JWT payload decoder (no deps)
+// ---- Minimal, safe JWT payload decoder (no deps) ---------------------------
 function decodeJwt<T = Decoded>(token: string): T | {} {
   try {
     const [, payload] = token.split(".");
@@ -57,6 +70,7 @@ async function fetchRole(token: string): Promise<Role | null> {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User>(null);
   const [role, setRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -66,15 +80,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (r) setRole(r);
   };
 
+  // Boot: restore token (and role) from storage
   useEffect(() => {
     (async () => {
-      // Prefer new key 'access', but support old 'token' for backward-compat
-      const saved = localStorage.getItem("access") || localStorage.getItem("token");
+      const saved = getAccessToken();
       if (saved) {
         const d = decodeJwt<Decoded>(saved);
         if (d?.exp && d.exp * 1000 < Date.now()) {
-          localStorage.removeItem("access");
-          localStorage.removeItem("token");
+          clearTokens();
         } else {
           setToken(saved);
           await ensureRole(saved, d);
@@ -84,16 +97,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  const login = async (t: string) => {
-    localStorage.setItem("access", t); // new canonical key
-    localStorage.removeItem("token");  // clean up legacy key
+  const login = async (t: string, u?: NonNullable<User>) => {
+    setAccessToken(t); // canonical key "access"
     setToken(t);
-    await ensureRole(t, decodeJwt<Decoded>(t));
+    if (u) {
+      setUser(u);
+      if (u.role) setRole(u.role);
+    } else {
+      await ensureRole(t, decodeJwt<Decoded>(t));
+    }
   };
 
   const logout = () => {
-    localStorage.removeItem("access");
-    localStorage.removeItem("token");
+    clearTokens();
+    setUser(null);
     setToken(null);
     setRole(null);
   };
@@ -105,7 +122,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthCtx.Provider value={{ token, role, loading, login, logout, refreshRole }}>
+    <AuthCtx.Provider
+      value={{
+        token,
+        user,
+        role,
+        isAdmin: role === "ADMIN",
+        loading,
+        login,
+        logout,
+        refreshRole,
+      }}
+    >
       {children}
     </AuthCtx.Provider>
   );
