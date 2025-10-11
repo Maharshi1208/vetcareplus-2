@@ -10,12 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # Make sure Prisma knows where the schema is
-      PRISMA_SCHEMA_PATH: backend/prisma/schema.prisma
-      # Simple SQLite for CI
-      DATABASE_URL: file:./dev.db
       PORT: 4000
       NODE_ENV: test
+      # SQLite for CI
+      DATABASE_URL: file:./dev.db
 
     steps:
       - name: Checkout
@@ -26,8 +24,7 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependency-path: |
-            backend/package-lock.json
+          cache-dependency-path: backend/package-lock.json
 
       - name: Install deps (backend)
         working-directory: backend
@@ -35,32 +32,22 @@ jobs:
 
       - name: Generate Prisma client
         working-directory: backend
-        run: npx prisma generate --schema "$PRISMA_SCHEMA_PATH"
+        run: npx prisma generate --schema prisma/schema.prisma
 
-      - name: Reset & migrate DB
+      - name: Migrate DB
         working-directory: backend
-        run: |
-          npx prisma migrate deploy --schema "$PRISMA_SCHEMA_PATH"
-
-      # (Optional) Seed if you have a script
-      # - name: Seed
-      #   working-directory: backend
-      #   run: npm run seed
+        run: npx prisma migrate deploy --schema prisma/schema.prisma
 
       - name: Build server
         working-directory: backend
         run: npm run build
 
-      - name: Start API
+      - name: Start API & healthcheck
         working-directory: backend
         run: |
           node dist/server.js &
           for i in {1..30}; do
-            curl -sf "http://localhost:${PORT}/api/ping" && break
+            curl -sf "http://localhost:${PORT}/api/ping" && exit 0
             sleep 1
           done
-
-      # (Optional) run tests here if you have them
-      # - name: Run tests
-      #   working-directory: backend
-      #   run: npm test
+          echo "API failed to start"; exit 1
