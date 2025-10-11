@@ -10,8 +10,8 @@ jobs:
   zap-scan:
     runs-on: ubuntu-latest
     env:
-      # unique compose project per run to avoid name collisions
       COMPOSE_PROJECT_NAME: zap-${{ github.run_id }}
+      PORT: 4000
 
     steps:
       - name: Checkout
@@ -40,7 +40,7 @@ jobs:
 
       - name: Wait for API to be ready
         env:
-          URL: http://localhost:4000
+          URL: http://localhost:${{ env.PORT }}/api/ping
         run: |
           echo "Waiting for $URL ..."
           for i in $(seq 1 60); do
@@ -56,7 +56,7 @@ jobs:
 
       - name: Get Admin JWT (register if needed)
         env:
-          API: http://localhost:4000
+          API: http://localhost:${{ env.PORT }}/api
           ADMIN_EMAIL: admin@vetcare.local
           ADMIN_PASSWORD: admin123
         run: |
@@ -79,7 +79,7 @@ jobs:
           fi
           if [ -z "$ACCESS" ]; then
             echo "Failed to get admin token" >&2
-            curl -sS "$API" || true
+            curl -sS "$API/ping" || true
             docker compose -f infra/docker-compose.yml logs api || true
             exit 1
           fi
@@ -93,7 +93,7 @@ jobs:
         run: |
           docker run --rm -t --network host \
             -v "$PWD":/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py -t http://localhost:4000 -r zap-baseline.html \
+            zap-baseline.py -t http://localhost:${{ env.PORT }}/api -r zap-baseline.html \
             -c /zap/wrk/infra/zap-rules.tsv
 
       - name: ZAP API Scan (active, OpenAPI)
@@ -102,7 +102,7 @@ jobs:
         run: |
           docker run --rm -t --network host \
             -v "$PWD":/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable \
-            zap-api-scan.py -t http://localhost:4000/docs/openapi.json -f openapi \
+            zap-api-scan.py -t http://localhost:${{ env.PORT }}/api/docs/openapi.json -f openapi \
             -r zap-openapi.html -c /zap/wrk/infra/zap-rules.tsv \
             -z "
               -config replacer.full_list(0).description=auth

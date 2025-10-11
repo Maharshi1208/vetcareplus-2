@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "dotenv -e ../.env -- tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.json",
     "start": "dotenv -e ../.env -- node dist/server.js",
     "test": "npm run test:unit && npm run test:int",
     "test:unit": "jest --config ./jest.config.ts --passWithNoTests --ci --reporters=default --testPathPattern=\".*\\\\.unit\\\\.test\\\\.ts$\"",
@@ -16,7 +16,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:reset": "prisma migrate reset --force",
-    "prisma:studio": "prisma studio",
+    "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
     "test:ci": "jest --config ./jest.config.ts --runInBand --detectOpenHandles --ci --coverage --reporters=default",
     "coverage:html": "jest --config ./jest.config.ts --coverage --coverageReporters=html"
